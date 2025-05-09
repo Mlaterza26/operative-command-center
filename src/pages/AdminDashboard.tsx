@@ -137,7 +137,14 @@ const AdminDashboard: React.FC = () => {
     localStorage.setItem("cpuAlertTemplate", cpuAlertTemplate);
     localStorage.setItem("cpuDefaultRecipient", cpuDefaultRecipient);
     
-    toast.success("CPU rule configuration updated");
+    // Here's where the error was occurring - we need to properly handle template variables
+    // Instead of trying to interpolate them directly, we'll just show an example message
+    toast.success("CPU rule configuration updated", {
+      description: "Example alert: " + cpuAlertTemplate.replace(/\{\{lineItemId\}\}/g, "LI123")
+                                                   .replace(/\{\{orderId\}\}/g, "ORD456")
+                                                   .replace(/\{\{client\}\}/g, "Acme Corp")
+                                                   .replace(/\{\{gap\}\}/g, "3")
+    });
   };
 
   const handleSaveDebugSettings = () => {
