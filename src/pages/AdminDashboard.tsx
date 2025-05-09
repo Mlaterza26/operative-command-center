@@ -294,7 +294,7 @@ const AdminDashboard: React.FC = () => {
                     className="min-h-[100px]"
                   />
                   <p className="text-sm text-gray-500">
-                    Use {{'{{'}}lineItemId{{'}}'}}, {{'{{'}}orderId{{'}}'}}, {{'{{'}}client{{'}}'}}, and {{'{{'}}gap{{'}}'}} as variables
+                    Use {'{{lineItemId}}'}, {'{{orderId}}'}, {'{{client}}'}, and {'{{gap}}'} as variables
                   </p>
                 </div>
                 
