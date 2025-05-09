@@ -1,6 +1,14 @@
 
 import React from "react";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
 interface FilterOption {
@@ -26,19 +34,19 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters }) => {
             value={filter.value}
             onValueChange={filter.onChange}
           >
-            <Select.Trigger className="w-full">
-              <Select.Value placeholder={filter.name} />
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Group>
-                <Select.Label>{filter.name}</Select.Label>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={filter.name} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>{filter.name}</SelectLabel>
                 {filter.options.map((option) => (
-                  <Select.Item key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value}>
                     {option.label}
-                  </Select.Item>
+                  </SelectItem>
                 ))}
-              </Select.Group>
-            </Select.Content>
+              </SelectGroup>
+            </SelectContent>
           </Select>
         </div>
       ))}
