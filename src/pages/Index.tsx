@@ -1,11 +1,65 @@
-// Update this page (the content is just a fallback if you fail to update the page)
 
-const Index = () => {
+import React from "react";
+import TopNavigation from "@/components/TopNavigation";
+import TeamPanel from "@/components/TeamPanel";
+
+const teamDescriptions = {
+  sales: "Manage leads, track sales performance, and monitor pipeline progress with real-time data.",
+  planning: "Oversee campaign planning, resource allocation, and project timelines across multiple clients.",
+  clientSuccess: "Track client satisfaction metrics, monitor account health, and identify opportunities for growth.",
+  adOps: "Optimize ad delivery metrics, monitor campaign performance, and identify technical issues.",
+  finance: "Review financial reports, track invoicing status, and identify discrepancies in campaign billing."
+};
+
+const Index: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gray-50">
+      <TopNavigation />
+      
+      <div className="container mx-auto px-4 py-12">
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Operative Control</h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Centralized dashboard system for managing operations across departments
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <TeamPanel
+            title="Sales"
+            description={teamDescriptions.sales}
+            path="/sales"
+            className="border-l-4 border-blue-500"
+          />
+          
+          <TeamPanel
+            title="Planning"
+            description={teamDescriptions.planning}
+            path="/planning"
+            className="border-l-4 border-purple-500"
+          />
+          
+          <TeamPanel
+            title="Client Success"
+            description={teamDescriptions.clientSuccess}
+            path="/client-success"
+            className="border-l-4 border-green-500"
+          />
+          
+          <TeamPanel
+            title="Ad Ops"
+            description={teamDescriptions.adOps}
+            path="/ad-ops"
+            className="border-l-4 border-amber-500"
+          />
+          
+          <TeamPanel
+            title="Finance"
+            description={teamDescriptions.finance}
+            path="/finance"
+            className="border-l-4 border-operative-red"
+          />
+        </div>
       </div>
     </div>
   );
