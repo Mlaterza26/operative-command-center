@@ -268,7 +268,7 @@ const UncOperative1Bot: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      <style jsx global>{`
+      <style>{`
         @keyframes glitch {
           0% { transform: translate(0); }
           20% { transform: translate(-5px, 5px); }
@@ -283,3 +283,4 @@ const UncOperative1Bot: React.FC = () => {
 };
 
 export default UncOperative1Bot;
+
