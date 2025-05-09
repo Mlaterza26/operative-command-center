@@ -137,13 +137,21 @@ const AdminDashboard: React.FC = () => {
     localStorage.setItem("cpuAlertTemplate", cpuAlertTemplate);
     localStorage.setItem("cpuDefaultRecipient", cpuDefaultRecipient);
     
-    // Here's where the error was occurring - we need to properly handle template variables
-    // Instead of trying to interpolate them directly, we'll just show an example message
+    // Fix: Create example values for template variables instead of trying to reference undefined variables
+    const exampleLineItemId = "LI123";
+    const exampleClient = "Acme Corp";
+    const exampleGap = "3";
+    const exampleOrderId = "ORD456";
+    
+    // Generate example message by replacing template placeholders with example values
+    const exampleMessage = cpuAlertTemplate
+      .replace(/\{\{lineItemId\}\}/g, exampleLineItemId)
+      .replace(/\{\{orderId\}\}/g, exampleOrderId)
+      .replace(/\{\{client\}\}/g, exampleClient)
+      .replace(/\{\{gap\}\}/g, exampleGap);
+    
     toast.success("CPU rule configuration updated", {
-      description: "Example alert: " + cpuAlertTemplate.replace(/\{\{lineItemId\}\}/g, "LI123")
-                                                   .replace(/\{\{orderId\}\}/g, "ORD456")
-                                                   .replace(/\{\{client\}\}/g, "Acme Corp")
-                                                   .replace(/\{\{gap\}\}/g, "3")
+      description: "Example alert: " + exampleMessage
     });
   };
 
@@ -292,7 +300,7 @@ const AdminDashboard: React.FC = () => {
                     className="min-h-[100px]"
                   />
                   <p className="text-sm text-gray-500">
-                    Use {{lineItemId}}, {{orderId}}, {{client}}, and {{gap}} as variables
+                    Use &#123;&#123;lineItemId&#125;&#125;, &#123;&#123;orderId&#125;&#125;, &#123;&#123;client&#125;&#125;, and &#123;&#123;gap&#125;&#125; as variables
                   </p>
                 </div>
                 
