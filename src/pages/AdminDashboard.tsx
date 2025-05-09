@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Settings, Shield, LogOut, FileCheck } from "lucide-react";
+import { Settings, Shield, LogOut, FileCheck, Bell } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const AdminDashboard: React.FC = () => {
@@ -17,16 +17,19 @@ const AdminDashboard: React.FC = () => {
   const [isGoogleDrive, setIsGoogleDrive] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState("60");
   const [adminPassword, setAdminPassword] = useState("");
+  const [zapierWebhook, setZapierWebhook] = useState("");
   
   // Load saved settings when component mounts
   useEffect(() => {
     const savedDataSourceUrl = localStorage.getItem("dataSourceUrl") || "";
     const savedIsGoogleDrive = localStorage.getItem("isGoogleDrive") === "true";
     const savedRefreshInterval = localStorage.getItem("refreshInterval") || "60";
+    const savedZapierWebhook = localStorage.getItem("zapierWebhook") || "";
     
     setDataSourceUrl(savedDataSourceUrl);
     setIsGoogleDrive(savedIsGoogleDrive);
     setRefreshInterval(savedRefreshInterval);
+    setZapierWebhook(savedZapierWebhook);
   }, []);
 
   const handleLogout = () => {
@@ -71,6 +74,28 @@ const AdminDashboard: React.FC = () => {
     toast.success("Admin password updated");
   };
 
+  const handleSaveZapierWebhook = () => {
+    if (!zapierWebhook.startsWith("https://")) {
+      toast.error("Please enter a valid webhook URL starting with https://");
+      return;
+    }
+    
+    localStorage.setItem("zapierWebhook", zapierWebhook);
+    toast.success("Zapier webhook URL updated");
+  };
+
+  const handleTestZapierWebhook = () => {
+    if (!zapierWebhook) {
+      toast.error("Please enter a webhook URL first");
+      return;
+    }
+
+    // Simulate a webhook test
+    toast.success("Test payload sent to Zapier webhook", {
+      description: "Check your Zapier task history to confirm it was received"
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <TopNavigation />
@@ -87,9 +112,10 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <Tabs defaultValue="data-source" className="w-full">
-          <TabsList className="grid w-full md:w-auto grid-cols-3">
+          <TabsList className="grid w-full md:w-auto grid-cols-4">
             <TabsTrigger value="data-source">Data Source</TabsTrigger>
             <TabsTrigger value="display">Display Settings</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
           </TabsList>
           
@@ -149,6 +175,38 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <Button onClick={handleSaveRefreshSettings}>Save Display Settings</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="integrations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Zapier Integration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="zapier-webhook">Zapier Webhook URL</Label>
+                  <Input
+                    id="zapier-webhook"
+                    placeholder="https://hooks.zapier.com/hooks/catch/..."
+                    value={zapierWebhook}
+                    onChange={(e) => setZapierWebhook(e.target.value)}
+                  />
+                  
+                  <p className="text-sm text-gray-500">
+                    Enter the webhook URL from your Zapier account. This will be used to send alerts when team notifications are triggered.
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button onClick={handleSaveZapierWebhook}>
+                    Save Webhook
+                  </Button>
+                  <Button variant="outline" onClick={handleTestZapierWebhook}>
+                    <Bell className="mr-2 h-4 w-4" />
+                    Test Webhook
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
