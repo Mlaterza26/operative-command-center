@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import TopNavigation from "@/components/TopNavigation";
 import TeamPanel from "@/components/TeamPanel";
 
@@ -12,6 +12,33 @@ const teamDescriptions = {
 };
 
 const Index: React.FC = () => {
+  const [alertCount, setAlertCount] = useState<number>(0);
+
+  // Get alert count from localStorage
+  useEffect(() => {
+    // Check if there are any alerts in localStorage
+    const checkAlerts = () => {
+      const alertsData = localStorage.getItem("alertHistory");
+      if (alertsData) {
+        try {
+          const alerts = JSON.parse(alertsData);
+          // Count unresolved alerts
+          const unresolvedCount = alerts.filter((alert: any) => !alert.resolved).length;
+          setAlertCount(unresolvedCount);
+        } catch (error) {
+          console.error("Error parsing alerts data:", error);
+          setAlertCount(0);
+        }
+      }
+    };
+
+    checkAlerts();
+    // Check alerts whenever the component is mounted
+    const interval = setInterval(checkAlerts, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <TopNavigation />
@@ -55,9 +82,11 @@ const Index: React.FC = () => {
           
           <TeamPanel
             title="Finance"
+            subtitle="Financial Order Monitoring & Alerts"
             description={teamDescriptions.finance}
             path="/finance"
             className="border-l-4 border-operative-red"
+            badge={alertCount > 0 ? { count: alertCount, label: "new alerts" } : undefined}
           />
         </div>
       </div>
