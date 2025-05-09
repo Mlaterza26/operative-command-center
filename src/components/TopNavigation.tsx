@@ -1,6 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Settings } from "lucide-react";
 
 const navItems = [
   { name: "SALES", path: "/sales" },
@@ -36,6 +37,13 @@ const TopNavigation: React.FC = () => {
             </Link>
           ))}
         </nav>
+        <Link 
+          to="/admin" 
+          className="ml-6 p-2 rounded-full hover:bg-gray-100"
+          title="Admin Settings"
+        >
+          <Settings className="h-5 w-5 text-gray-600" />
+        </Link>
       </div>
     </div>
   );

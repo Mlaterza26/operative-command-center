@@ -8,6 +8,9 @@ import Index from "./pages/Index";
 import Finance from "./pages/Finance";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
+import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +27,15 @@ const App = () => (
           <Route path="/planning" element={<PlaceholderPage />} />
           <Route path="/client-success" element={<PlaceholderPage />} />
           <Route path="/ad-ops" element={<PlaceholderPage />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
