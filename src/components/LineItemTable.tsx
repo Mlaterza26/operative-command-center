@@ -1,12 +1,10 @@
-
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, BellOff, FileText } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
-import { isReviewed, markAsReviewed, removeReview } from "@/utils/reviewStorage";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { useReview } from "@/hooks/useReview";
+import ReviewDialog from "@/components/ReviewDialog";
 
 export interface LineItem {
   id: string;
@@ -33,84 +31,62 @@ interface LineItemTableProps {
   onIgnoreAction: (lineItemId: string) => void;
 }
 
-const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAlertAction, onIgnoreAction }) => {
-  // Function to calculate months spanned
-  const calculateMonthsSpanned = (startDate: string, endDate: string): number => {
-    if (!startDate || !endDate) return 0;
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    return (end.getFullYear() - start.getFullYear()) * 12 + 
-      (end.getMonth() - start.getMonth()) + 1;
-  };
+// Extracted Table Header component
+const TableHeader: React.FC = () => (
+  <TableHeader>
+    <TableRow>
+      <TableHead>Order ID</TableHead>
+      <TableHead>Order Name</TableHead>
+      <TableHead>Line Item ID</TableHead>
+      <TableHead>Start Date</TableHead>
+      <TableHead>End Date</TableHead>
+      <TableHead>Cost Method</TableHead>
+      <TableHead>Quantity</TableHead>
+      <TableHead>Net Cost</TableHead>
+      <TableHead>Advertiser</TableHead>
+      <TableHead>Order Owner</TableHead>
+      <TableHead>Months Spanned</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead>Actions</TableHead>
+    </TableRow>
+  </TableHeader>
+);
 
-  // State for review dialog
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [reviewItemId, setReviewItemId] = useState<string | null>(null);
-  const [reviewedRows, setReviewedRows] = useState<Record<string, boolean>>({});
+// Extracted helper function for calculating months spanned
+const calculateMonthsSpanned = (startDate?: string, endDate?: string): number => {
+  if (!startDate || !endDate) return 0;
   
-  // Initialize reviewed rows from localStorage
-  useEffect(() => {
-    const newReviewedRows: Record<string, boolean> = {};
-    items.forEach(item => {
-      if (isReviewed(item.id)) {
-        newReviewedRows[item.id] = true;
-      }
-    });
-    setReviewedRows(newReviewedRows);
-  }, [items]);
-
-  const openReviewDialog = (itemId: string) => {
-    setReviewItemId(itemId);
-    setReviewNotes("");
-    setReviewDialogOpen(true);
-  };
-
-  const handleSubmitReview = () => {
-    if (!reviewItemId) return;
-    
-    markAsReviewed(reviewItemId, reviewNotes);
-    
-    // Update UI state
-    const newReviewedRows = {...reviewedRows};
-    newReviewedRows[reviewItemId] = true;
-    setReviewedRows(newReviewedRows);
-    
-    setReviewDialogOpen(false);
-  };
-
-  const handleRemoveReview = (itemId: string) => {
-    removeReview(itemId);
-    
-    // Update UI state
-    const newReviewedRows = {...reviewedRows};
-    delete newReviewedRows[itemId];
-    setReviewedRows(newReviewedRows);
-  };
+  const start = new Date(startDate);
+  const end = new Date(endDate);
   
+  return (end.getFullYear() - start.getFullYear()) * 12 + 
+    (end.getMonth() - start.getMonth()) + 1;
+};
+
+// Main component
+const LineItemTable: React.FC<LineItemTableProps> = ({ 
+  items, 
+  onAlertAction, 
+  onIgnoreAction 
+}) => {
+  // Use the custom review hook
+  const {
+    reviewDialogOpen,
+    reviewNotes,
+    reviewItemId,
+    reviewedRows,
+    setReviewDialogOpen,
+    setReviewNotes,
+    openReviewDialog,
+    handleSubmitReview,
+    handleRemoveReview
+  } = useReview(items);
+
   return (
     <>
       <div className="overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Order Name</TableHead>
-              <TableHead>Line Item ID</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
-              <TableHead>Cost Method</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Net Cost</TableHead>
-              <TableHead>Advertiser</TableHead>
-              <TableHead>Order Owner</TableHead>
-              <TableHead>Months Spanned</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+          <TableHeader />
           <TableBody>
             {items.map((item) => {
               const monthsSpanned = item.startDate && item.endDate 
@@ -217,32 +193,15 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAlertAction, onI
       </div>
       
       {/* Review Dialog */}
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Review Item</DialogTitle>
-            <DialogDescription>
-              Add notes about your review of this item.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Textarea
-              value={reviewNotes}
-              onChange={(e) => setReviewNotes(e.target.value)}
-              placeholder="Enter any notes about your review..."
-              className="min-h-[120px]"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="default" onClick={handleSubmitReview}>
-              Save Review
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        notes={reviewNotes}
+        onNotesChange={setReviewNotes}
+        onSubmit={handleSubmitReview}
+        onRemove={reviewItemId ? () => handleRemoveReview(reviewItemId) : undefined}
+        isEditing={reviewItemId ? reviewedRows[reviewItemId] : false}
+      />
     </>
   );
 };
