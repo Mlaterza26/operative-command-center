@@ -29,6 +29,8 @@ export interface LineItem {
   hasFlag: boolean;
   orderOwner: string;
   alertedTo: string;
+  alertedAt?: string;
+  ignored?: boolean;
   advertiser?: string;
 }
 
@@ -291,12 +293,17 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
       
       // If item was previously alerted and hasn't changed, keep alert info
       if (alertRecord && !alertRecord.ignored) {
-        return { ...item, alertedTo: alertRecord.alertedTo, hasFlag: false };
+        return { 
+          ...item, 
+          alertedTo: alertRecord.alertedTo, 
+          alertedAt: alertRecord.alertedAt,
+          hasFlag: false 
+        };
       }
       
       // If item was previously ignored, remove flag
       if (alertRecord && alertRecord.ignored) {
-        return { ...item, hasFlag: false };
+        return { ...item, hasFlag: false, ignored: true };
       }
       
       return item;
@@ -450,8 +457,14 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
 
     // Update the item in the UI
     const alertedTo = lineItem.orderOwner || "Team Lead";
+    const alertedAt = new Date().toISOString();
     const updatedItems = displayItems.map(item => 
-      item.id === lineItem.id ? { ...item, hasFlag: false, alertedTo } : item
+      item.id === lineItem.id ? { 
+        ...item, 
+        hasFlag: false, 
+        alertedTo, 
+        alertedAt 
+      } : item
     );
     
     // Update flagged rows
@@ -460,6 +473,14 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
     setFlaggedRows(newFlaggedRows);
     
     setDisplayItems(updatedItems);
+    setFilteredItems(prev => 
+      prev.map(item => item.id === lineItem.id ? { 
+        ...item, 
+        hasFlag: false, 
+        alertedTo, 
+        alertedAt 
+      } : item)
+    );
     
     // Record the alert in localStorage
     recordAlert({
@@ -467,11 +488,8 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
       orderId: lineItem.orderId,
       client: lineItem.client,
       alertedTo,
+      alertedAt,
       savedHash: calculateItemHash(lineItem)
-    });
-
-    toast.success(`Alert sent for Line Item #${lineItem.id}`, {
-      description: `${alertedTo} has been notified about this issue.`
     });
   };
 
@@ -488,7 +506,7 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
   const handleIgnoreAction = (lineItem: LineItem) => {
     // Update the item in the UI
     const updatedItems = displayItems.map(item => 
-      item.id === lineItem.id ? { ...item, hasFlag: false } : item
+      item.id === lineItem.id ? { ...item, hasFlag: false, ignored: true } : item
     );
     
     // Update flagged rows
@@ -497,6 +515,9 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
     setFlaggedRows(newFlaggedRows);
     
     setDisplayItems(updatedItems);
+    setFilteredItems(prev => 
+      prev.map(item => item.id === lineItem.id ? { ...item, hasFlag: false, ignored: true } : item)
+    );
     
     // Record the ignore in localStorage
     recordAlert({
@@ -506,8 +527,40 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
       ignored: true,
       savedHash: calculateItemHash(lineItem)
     });
+  };
 
-    toast.info(`Line Item #${lineItem.id} alert dismissed`);
+  const handleResolveAction = (lineItem: LineItem) => {
+    // Update the item in the UI
+    const updatedItems = displayItems.map(item => 
+      item.id === lineItem.id ? { 
+        ...item, 
+        hasFlag: false, 
+        ignored: false, 
+        alertedTo: "", 
+        resolvedAt: new Date().toISOString() 
+      } : item
+    );
+    
+    setDisplayItems(updatedItems);
+    setFilteredItems(prev => 
+      prev.map(item => item.id === lineItem.id ? { 
+        ...item, 
+        hasFlag: false, 
+        ignored: false, 
+        alertedTo: "", 
+        resolvedAt: new Date().toISOString() 
+      } : item)
+    );
+    
+    // Record the resolution in localStorage
+    recordAlert({
+      lineItemId: lineItem.id,
+      orderId: lineItem.orderId,
+      client: lineItem.client,
+      resolved: true,
+      resolvedAt: new Date().toISOString(),
+      savedHash: calculateItemHash(lineItem)
+    });
   };
 
   // Table columns configuration
@@ -575,6 +628,7 @@ const FinanceDetailView: React.FC<FinanceDetailViewProps> = ({ view, onBackClick
             onSort={handleSort}
             onAlert={handleAlertAction}
             onIgnore={handleIgnoreAction}
+            onResolve={handleResolveAction}
             flaggedRows={flaggedRows}
           />
         )}

@@ -32,9 +32,9 @@ export const recordAlert = (record: AlertRecord): void => {
     const alerts = getLocalStorageAlerts();
     
     alerts[record.lineItemId] = {
-      ...record,
-      alertedAt: record.alertedAt || new Date().toISOString(),
-      resolved: record.resolved || false,
+      ...alerts[record.lineItemId], // Keep existing record data if it exists
+      ...record, // Update with new data
+      alertedAt: record.alertedAt || alerts[record.lineItemId]?.alertedAt || new Date().toISOString(),
     };
     
     localStorage.setItem("financeAlerts", JSON.stringify(alerts));
@@ -60,6 +60,8 @@ export const updateAlertHistory = (record: AlertRecord): void => {
         client: record.client,
         alertedAt: record.alertedAt || new Date().toISOString(),
         alertedBy: "Current User",
+        alertedTo: record.alertedTo || "Team",
+        status: "Attention Requested",
         resolved: false
       };
       
@@ -69,19 +71,34 @@ export const updateAlertHistory = (record: AlertRecord): void => {
       );
       
       if (existingIndex >= 0) {
-        history[existingIndex] = historyRecord;
+        history[existingIndex] = {...history[existingIndex], ...historyRecord};
       } else {
         history.push(historyRecord);
       }
     }
     // Update resolved status
-    else if (record.resolved || record.ignored) {
+    else if (record.resolved) {
       history = history.map((item: any) => {
         if (item.lineItemId === record.lineItemId) {
           return {
             ...item,
             resolved: true,
-            resolvedAt: new Date().toISOString()
+            resolvedAt: record.resolvedAt || new Date().toISOString(),
+            status: "Resolved"
+          };
+        }
+        return item;
+      });
+    }
+    // Update ignored/reviewed status
+    else if (record.ignored) {
+      history = history.map((item: any) => {
+        if (item.lineItemId === record.lineItemId) {
+          return {
+            ...item,
+            reviewed: true,
+            reviewedAt: new Date().toISOString(),
+            status: "Reviewed"
           };
         }
         return item;
@@ -91,5 +108,29 @@ export const updateAlertHistory = (record: AlertRecord): void => {
     localStorage.setItem("alertHistory", JSON.stringify(history));
   } catch (e) {
     console.error("Error updating alert history:", e);
+  }
+};
+
+// Get alert history from localStorage
+export const getAlertHistory = (): any[] => {
+  try {
+    const alertHistory = localStorage.getItem("alertHistory");
+    return alertHistory ? JSON.parse(alertHistory) : [];
+  } catch (e) {
+    console.error("Error reading alert history from localStorage:", e);
+    return [];
+  }
+};
+
+// Clear alert for a specific line item
+export const clearAlert = (lineItemId: string): void => {
+  try {
+    const alerts = getLocalStorageAlerts();
+    if (alerts[lineItemId]) {
+      delete alerts[lineItemId];
+      localStorage.setItem("financeAlerts", JSON.stringify(alerts));
+    }
+  } catch (e) {
+    console.error("Error clearing alert from localStorage:", e);
   }
 };
