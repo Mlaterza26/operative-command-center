@@ -33,6 +33,7 @@ interface SortableTableProps {
   onIgnore: (item: any) => void;
   onResolve?: (item: any) => void;
   flaggedRows?: Record<string, boolean>;
+  rowsPerPage?: number;
 }
 
 const SortableTable: React.FC<SortableTableProps> = ({
@@ -44,10 +45,12 @@ const SortableTable: React.FC<SortableTableProps> = ({
   onAlert,
   onIgnore,
   onResolve,
-  flaggedRows = {}
+  flaggedRows = {},
+  rowsPerPage = 20
 }) => {
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [selectedLineItem, setSelectedLineItem] = useState<LineItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleSort = (key: string) => {
     onSort(key);
@@ -111,6 +114,12 @@ const SortableTable: React.FC<SortableTableProps> = ({
     return null;
   };
 
+  // Calculate pagination
+  const totalPages = Math.ceil(data.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = Math.min(startIndex + rowsPerPage, data.length);
+  const currentData = data.slice(startIndex, endIndex);
+
   return (
     <>
       <div className="rounded-md border">
@@ -143,14 +152,14 @@ const SortableTable: React.FC<SortableTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.length === 0 ? (
+            {currentData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length + 2} className="text-center py-8 text-gray-500">
                   No data available
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row, index) => {
+              currentData.map((row, index) => {
                 const isIssueRow = flaggedRows[row.id];
                 const isAlertedRow = row.alertedTo;
                 const isIgnoredRow = row.ignored;
@@ -170,7 +179,7 @@ const SortableTable: React.FC<SortableTableProps> = ({
                     {columns.map((column) => (
                       <TableCell 
                         key={`${row.id}-${column.key}`}
-                        className={`${column.key === 'quantityGap' && isIssueRow ? 'text-red-600 font-medium' : ''}`}
+                        className={`${column.key === 'quantityGap' && Number(row[column.key]) < 0 ? 'text-red-600 font-medium' : ''}`}
                       >
                         {column.render 
                           ? column.render(row[column.key], row) 
@@ -257,6 +266,36 @@ const SortableTable: React.FC<SortableTableProps> = ({
           </TableBody>
         </Table>
       </div>
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between space-x-2 py-4">
+          <div className="text-sm text-gray-500">
+            Showing {startIndex + 1}-{endIndex} of {data.length}
+          </div>
+          <div className="space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm font-medium">
+              {currentPage} of {totalPages}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
       
       <AlertModal
         lineItem={selectedLineItem}

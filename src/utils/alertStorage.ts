@@ -1,4 +1,3 @@
-
 interface AlertRecord {
   lineItemId: string;
   orderId: string;
@@ -41,8 +40,34 @@ export const recordAlert = (record: AlertRecord): void => {
     
     // Also update alert history
     updateAlertHistory(record);
+    
+    // Update last data refresh timestamp
+    updateLastDataRefresh();
   } catch (e) {
     console.error("Error saving alert to localStorage:", e);
+  }
+};
+
+// Update the last data refresh timestamp
+export const updateLastDataRefresh = (): void => {
+  try {
+    localStorage.setItem("lastDataRefresh", new Date().toISOString());
+  } catch (e) {
+    console.error("Error updating last data refresh timestamp:", e);
+  }
+};
+
+// Get the last data refresh timestamp
+export const getLastDataRefresh = (): string => {
+  try {
+    const timestamp = localStorage.getItem("lastDataRefresh");
+    if (timestamp) {
+      return new Date(timestamp).toLocaleString();
+    }
+    return new Date().toLocaleString();
+  } catch (e) {
+    console.error("Error getting last data refresh timestamp:", e);
+    return new Date().toLocaleString();
   }
 };
 
