@@ -1,3 +1,4 @@
+
 interface AlertRecord {
   lineItemId: string;
   orderId: string;
@@ -157,5 +158,14 @@ export const clearAlert = (lineItemId: string): void => {
     }
   } catch (e) {
     console.error("Error clearing alert from localStorage:", e);
+  }
+};
+
+// Clear all alert history
+export const clearAlertHistory = (): void => {
+  try {
+    localStorage.removeItem("alertHistory");
+  } catch (e) {
+    console.error("Error clearing alert history:", e);
   }
 };

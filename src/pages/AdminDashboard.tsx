@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import TopNavigation from "@/components/TopNavigation";
 import { Button } from "@/components/ui/button";
@@ -8,8 +7,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Settings, Shield, LogOut, FileCheck, Bell } from "lucide-react";
+import { Settings, Shield, LogOut, FileCheck, Bell, Database, Trash2, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { clearAlertHistory, getAlertHistory, updateLastDataRefresh } from "@/utils/alertStorage";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +31,15 @@ const AdminDashboard: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState("");
   const [zapierWebhook, setZapierWebhook] = useState("");
   
+  // CPU Rule Configuration
+  const [cpuRuleEnabled, setCpuRuleEnabled] = useState(true);
+  const [cpuThreshold, setCpuThreshold] = useState("50");
+  const [cpuAlertTemplate, setCpuAlertTemplate] = useState(
+    "Attention required: CPU line item {{lineItemId}} for {{client}} has a quantity gap of {{gap}} units."
+  );
+  const [cpuDefaultRecipient, setCpuDefaultRecipient] = useState("finance-team@operative.com");
+  const [debugMode, setDebugMode] = useState(false);
+  
   // Load saved settings when component mounts
   useEffect(() => {
     const savedDataSourceUrl = localStorage.getItem("dataSourceUrl") || "";
@@ -26,10 +47,24 @@ const AdminDashboard: React.FC = () => {
     const savedRefreshInterval = localStorage.getItem("refreshInterval") || "60";
     const savedZapierWebhook = localStorage.getItem("zapierWebhook") || "";
     
+    // Load CPU rule configuration
+    const savedCpuRuleEnabled = localStorage.getItem("cpuRuleEnabled") !== "false"; // Default to true
+    const savedCpuThreshold = localStorage.getItem("cpuThreshold") || "50";
+    const savedCpuAlertTemplate = localStorage.getItem("cpuAlertTemplate") || 
+      "Attention required: CPU line item {{lineItemId}} for {{client}} has a quantity gap of {{gap}} units.";
+    const savedCpuDefaultRecipient = localStorage.getItem("cpuDefaultRecipient") || "finance-team@operative.com";
+    const savedDebugMode = localStorage.getItem("debugMode") === "true";
+    
     setDataSourceUrl(savedDataSourceUrl);
     setIsGoogleDrive(savedIsGoogleDrive);
     setRefreshInterval(savedRefreshInterval);
     setZapierWebhook(savedZapierWebhook);
+    
+    setCpuRuleEnabled(savedCpuRuleEnabled);
+    setCpuThreshold(savedCpuThreshold);
+    setCpuAlertTemplate(savedCpuAlertTemplate);
+    setCpuDefaultRecipient(savedCpuDefaultRecipient);
+    setDebugMode(savedDebugMode);
   }, []);
 
   const handleLogout = () => {
@@ -96,6 +131,32 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  const handleSaveCpuRuleConfig = () => {
+    localStorage.setItem("cpuRuleEnabled", cpuRuleEnabled.toString());
+    localStorage.setItem("cpuThreshold", cpuThreshold);
+    localStorage.setItem("cpuAlertTemplate", cpuAlertTemplate);
+    localStorage.setItem("cpuDefaultRecipient", cpuDefaultRecipient);
+    
+    toast.success("CPU rule configuration updated");
+  };
+
+  const handleSaveDebugSettings = () => {
+    localStorage.setItem("debugMode", debugMode.toString());
+    toast.success("Debug settings updated");
+  };
+
+  const handleClearAlertHistory = () => {
+    clearAlertHistory();
+    toast.success("Alert history cleared");
+  };
+
+  const handleReloadSampleData = () => {
+    // Reset to initial sample data
+    localStorage.removeItem("financeAlerts");
+    updateLastDataRefresh();
+    toast.success("Sample data reloaded");
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <TopNavigation />
@@ -112,10 +173,11 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <Tabs defaultValue="data-source" className="w-full">
-          <TabsList className="grid w-full md:w-auto grid-cols-4">
+          <TabsList className="grid w-full md:w-auto grid-cols-5">
             <TabsTrigger value="data-source">Data Source</TabsTrigger>
             <TabsTrigger value="display">Display Settings</TabsTrigger>
-            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="cpu-rules">CPU Rules</TabsTrigger>
+            <TabsTrigger value="data-management">Data Management</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
           </TabsList>
           
@@ -179,32 +241,134 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="integrations">
+          <TabsContent value="cpu-rules">
             <Card>
               <CardHeader>
-                <CardTitle>Zapier Integration</CardTitle>
+                <CardTitle>CPU Rule Configuration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="zapier-webhook">Zapier Webhook URL</Label>
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="cpu-rule-enabled"
+                      checked={cpuRuleEnabled}
+                      onCheckedChange={setCpuRuleEnabled}
+                    />
+                    <Label htmlFor="cpu-rule-enabled">Enable CPU Rule Alerts</Label>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cpu-threshold">Minimum Quantity Gap Threshold</Label>
                   <Input
-                    id="zapier-webhook"
-                    placeholder="https://hooks.zapier.com/hooks/catch/..."
-                    value={zapierWebhook}
-                    onChange={(e) => setZapierWebhook(e.target.value)}
+                    id="cpu-threshold"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={cpuThreshold}
+                    onChange={(e) => setCpuThreshold(e.target.value)}
+                    disabled={!cpuRuleEnabled}
                   />
-                  
                   <p className="text-sm text-gray-500">
-                    Enter the webhook URL from your Zapier account. This will be used to send alerts when team notifications are triggered.
+                    Alert will be triggered when quantity gap exceeds this threshold
                   </p>
                 </div>
-                <div className="flex space-x-2">
-                  <Button onClick={handleSaveZapierWebhook}>
-                    Save Webhook
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cpu-alert-template">Alert Message Template</Label>
+                  <Textarea
+                    id="cpu-alert-template"
+                    placeholder="Custom alert message template"
+                    value={cpuAlertTemplate}
+                    onChange={(e) => setCpuAlertTemplate(e.target.value)}
+                    disabled={!cpuRuleEnabled}
+                    className="min-h-[100px]"
+                  />
+                  <p className="text-sm text-gray-500">
+                    Use {{lineItemId}}, {{orderId}}, {{client}}, and {{gap}} as variables
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cpu-default-recipient">Default Alert Recipient</Label>
+                  <Input
+                    id="cpu-default-recipient"
+                    type="email"
+                    placeholder="finance-team@operative.com"
+                    value={cpuDefaultRecipient}
+                    onChange={(e) => setCpuDefaultRecipient(e.target.value)}
+                    disabled={!cpuRuleEnabled}
+                  />
+                </div>
+                
+                <Button onClick={handleSaveCpuRuleConfig} disabled={!cpuRuleEnabled}>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Save CPU Rule Configuration
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="data-management">
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Management</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Clear Alert History</Label>
+                  <p className="text-sm text-gray-500">
+                    Remove all stored alert records from local storage
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear Alert History
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete all
+                          alert history records from local storage.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearAlertHistory}>Continue</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Reload Sample Data</Label>
+                  <p className="text-sm text-gray-500">
+                    Reset to initial sample data set, removing any modifications
+                  </p>
+                  <Button onClick={handleReloadSampleData}>
+                    <Database className="mr-2 h-4 w-4" />
+                    Reload Sample Data
                   </Button>
-                  <Button variant="outline" onClick={handleTestZapierWebhook}>
-                    <Bell className="mr-2 h-4 w-4" />
-                    Test Webhook
+                </div>
+                
+                <div className="space-y-2 pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="debug-mode"
+                      checked={debugMode}
+                      onCheckedChange={setDebugMode}
+                    />
+                    <Label htmlFor="debug-mode">Enable Debug Mode</Label>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Show detailed processing information in browser console
+                  </p>
+                  <Button onClick={handleSaveDebugSettings}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Save Debug Settings
                   </Button>
                 </div>
               </CardContent>
