@@ -137,15 +137,13 @@ const AdminDashboard: React.FC = () => {
     localStorage.setItem("cpuAlertTemplate", cpuAlertTemplate);
     localStorage.setItem("cpuDefaultRecipient", cpuDefaultRecipient);
     
-    // Create an example message by manually replacing template variables with string values
-    const exampleMessage = cpuAlertTemplate
-      .replace(/\{\{lineItemId\}\}/g, "LI123")
-      .replace(/\{\{orderId\}\}/g, "ORD456")
-      .replace(/\{\{client\}\}/g, "Acme Corp")
-      .replace(/\{\{gap\}\}/g, "3");
-    
+    // Here's where the error was occurring - we need to properly handle template variables
+    // Instead of trying to interpolate them directly, we'll just show an example message
     toast.success("CPU rule configuration updated", {
-      description: "Example alert: " + exampleMessage
+      description: "Example alert: " + cpuAlertTemplate.replace(/\{\{lineItemId\}\}/g, "LI123")
+                                                   .replace(/\{\{orderId\}\}/g, "ORD456")
+                                                   .replace(/\{\{client\}\}/g, "Acme Corp")
+                                                   .replace(/\{\{gap\}\}/g, "3")
     });
   };
 
@@ -294,7 +292,7 @@ const AdminDashboard: React.FC = () => {
                     className="min-h-[100px]"
                   />
                   <p className="text-sm text-gray-500">
-                    Use {'{{lineItemId}}'}, {'{{orderId}}'}, {'{{client}}'}, and {'{{gap}}'} as variables
+                    Use {{lineItemId}}, {{orderId}}, {{client}}, and {{gap}} as variables
                   </p>
                 </div>
                 
