@@ -1,10 +1,9 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings, Plus, Calendar, AlertTriangle } from "lucide-react";
 import { CustomView } from "@/pages/Finance";
-import AddCustomViewModal from "./AddCustomViewModal";
 
 interface FinanceViewListProps {
   views: CustomView[];
@@ -64,12 +63,6 @@ const FinanceViewList: React.FC<FinanceViewListProps> = ({ views, onViewSelect, 
           ))}
         </div>
       </div>
-
-      <AddCustomViewModal
-        isOpen={isAddingView}
-        onClose={() => setIsAddingView(false)}
-        onAddView={handleAddView}
-      />
     </>
   );
 };

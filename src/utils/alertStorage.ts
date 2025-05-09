@@ -5,99 +5,91 @@ interface AlertRecord {
   client: string;
   alertedAt?: string;
   alertedTo?: string;
-  alertedBy?: string;
   resolved?: boolean;
   resolvedAt?: string;
   ignored?: boolean;
   savedHash?: string;
 }
 
-// Get all local storage alerts as a map
-export const getLocalStorageAlerts = (): Record<string, AlertRecord> => {
-  try {
-    const alerts = localStorage.getItem('financeAlerts');
-    if (alerts) {
-      return JSON.parse(alerts);
-    }
-  } catch (error) {
-    console.error('Error reading alerts from localStorage', error);
-  }
-  return {};
-};
+interface AlertsStore {
+  [lineItemId: string]: AlertRecord;
+}
 
-// Save all alerts to localStorage
-const saveAlertsToLocalStorage = (alerts: Record<string, AlertRecord>): void => {
+// Get alerts from localStorage
+export const getLocalStorageAlerts = (): AlertsStore => {
   try {
-    localStorage.setItem('financeAlerts', JSON.stringify(alerts));
-  } catch (error) {
-    console.error('Error saving alerts to localStorage', error);
+    const alerts = localStorage.getItem("financeAlerts");
+    return alerts ? JSON.parse(alerts) : {};
+  } catch (e) {
+    console.error("Error reading alerts from localStorage:", e);
+    return {};
   }
 };
 
-// Record a new alert or update an existing one
-export const recordAlert = (data: AlertRecord): void => {
-  const currentAlerts = getLocalStorageAlerts();
-  currentAlerts[data.lineItemId] = {
-    ...data,
-    alertedAt: data.alertedAt || new Date().toISOString(),
-    alertedBy: data.alertedBy || data.alertedTo || 'System',
-    resolved: data.resolved || false,
-  };
-  saveAlertsToLocalStorage(currentAlerts);
-};
-
-// Mark an alert as resolved
-export const resolveAlert = (lineItemId: string): void => {
-  const currentAlerts = getLocalStorageAlerts();
-  if (currentAlerts[lineItemId]) {
-    currentAlerts[lineItemId] = {
-      ...currentAlerts[lineItemId],
-      resolved: true,
-      resolvedAt: new Date().toISOString()
+// Record a new alert in localStorage
+export const recordAlert = (record: AlertRecord): void => {
+  try {
+    const alerts = getLocalStorageAlerts();
+    
+    alerts[record.lineItemId] = {
+      ...record,
+      alertedAt: record.alertedAt || new Date().toISOString(),
+      resolved: record.resolved || false,
     };
-    saveAlertsToLocalStorage(currentAlerts);
+    
+    localStorage.setItem("financeAlerts", JSON.stringify(alerts));
+    
+    // Also update alert history
+    updateAlertHistory(record);
+  } catch (e) {
+    console.error("Error saving alert to localStorage:", e);
   }
 };
 
-// Mark multiple alerts as resolved
-export const resolveAllAlerts = (lineItemIds: string[]): void => {
-  const currentAlerts = getLocalStorageAlerts();
-  const now = new Date().toISOString();
-  
-  lineItemIds.forEach(id => {
-    if (currentAlerts[id]) {
-      currentAlerts[id] = {
-        ...currentAlerts[id],
-        resolved: true,
-        resolvedAt: now
+// Update the alert history collection
+export const updateAlertHistory = (record: AlertRecord): void => {
+  try {
+    let alertHistory = localStorage.getItem("alertHistory");
+    let history = alertHistory ? JSON.parse(alertHistory) : [];
+    
+    // Add new record to history
+    if (!record.resolved && !record.ignored) {
+      const historyRecord = {
+        lineItemId: record.lineItemId,
+        orderId: record.orderId,
+        client: record.client,
+        alertedAt: record.alertedAt || new Date().toISOString(),
+        alertedBy: "Current User",
+        resolved: false
       };
+      
+      // Check if this line item is already in the history
+      const existingIndex = history.findIndex((item: any) => 
+        item.lineItemId === record.lineItemId
+      );
+      
+      if (existingIndex >= 0) {
+        history[existingIndex] = historyRecord;
+      } else {
+        history.push(historyRecord);
+      }
     }
-  });
-  
-  saveAlertsToLocalStorage(currentAlerts);
-};
-
-// Get all alerts as an array for history view
-export const getAllAlertHistory = (): Array<{
-  lineItemId: string;
-  orderId: string;
-  client: string;
-  alertedAt: string;
-  alertedBy: string;
-  resolved: boolean;
-  resolvedAt?: string;
-}> => {
-  const alerts = getLocalStorageAlerts();
-  return Object.values(alerts)
-    .filter(alert => !alert.ignored && alert.alertedAt) // Only show actual alerts, not just ignored items
-    .map(alert => ({
-      lineItemId: alert.lineItemId,
-      orderId: alert.orderId,
-      client: alert.client,
-      alertedAt: alert.alertedAt || new Date().toISOString(),
-      alertedBy: alert.alertedBy || alert.alertedTo || 'System',
-      resolved: alert.resolved || false,
-      resolvedAt: alert.resolvedAt
-    }))
-    .sort((a, b) => new Date(b.alertedAt).getTime() - new Date(a.alertedAt).getTime());
+    // Update resolved status
+    else if (record.resolved || record.ignored) {
+      history = history.map((item: any) => {
+        if (item.lineItemId === record.lineItemId) {
+          return {
+            ...item,
+            resolved: true,
+            resolvedAt: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+    }
+    
+    localStorage.setItem("alertHistory", JSON.stringify(history));
+  } catch (e) {
+    console.error("Error updating alert history:", e);
+  }
 };

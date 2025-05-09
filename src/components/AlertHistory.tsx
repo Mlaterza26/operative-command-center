@@ -1,14 +1,20 @@
 
 import React, { useState, useEffect } from "react";
-import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { ChevronLeft, Check } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { AlertHistoryItem } from "@/pages/Finance";
-import { getAllAlertHistory, resolveAlert, resolveAllAlerts } from "@/utils/alertStorage";
+import { updateAlertHistory } from "@/utils/alertStorage";
+
+export type AlertHistoryItem = {
+  lineItemId: string;
+  orderId: string;
+  client: string;
+  alertedAt: string;
+  alertedBy: string;
+  resolved: boolean;
+  resolvedAt?: string;
+};
 
 interface AlertHistoryProps {
   onBackClick: () => void;
@@ -16,173 +22,174 @@ interface AlertHistoryProps {
 
 const AlertHistory: React.FC<AlertHistoryProps> = ({ onBackClick }) => {
   const [alerts, setAlerts] = useState<AlertHistoryItem[]>([]);
-  const [filteredAlerts, setFilteredAlerts] = useState<AlertHistoryItem[]>([]);
-  const [orderFilter, setOrderFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
 
   useEffect(() => {
-    const history = getAllAlertHistory();
-    setAlerts(history);
-    setFilteredAlerts(history);
+    // Get alerts from localStorage
+    try {
+      const alertHistory = localStorage.getItem("alertHistory");
+      if (alertHistory) {
+        setAlerts(JSON.parse(alertHistory));
+      }
+    } catch (error) {
+      console.error("Error loading alert history:", error);
+      toast.error("Failed to load alert history");
+    }
   }, []);
 
-  useEffect(() => {
-    let filtered = alerts;
-    
-    if (orderFilter) {
-      filtered = filtered.filter(alert => 
-        alert.orderId.toLowerCase().includes(orderFilter.toLowerCase()));
-    }
-    
-    if (statusFilter !== "all") {
-      const isResolved = statusFilter === "resolved";
-      filtered = filtered.filter(alert => alert.resolved === isResolved);
-    }
-    
-    if (dateFilter) {
-      filtered = filtered.filter(alert => {
-        const alertDate = new Date(alert.alertedAt).toISOString().split('T')[0];
-        return alertDate === dateFilter;
-      });
-    }
-    
-    setFilteredAlerts(filtered);
-  }, [alerts, orderFilter, statusFilter, dateFilter]);
-
-  const handleResolve = (lineItemId: string) => {
-    resolveAlert(lineItemId);
-    const updatedAlerts = alerts.map(alert => 
-      alert.lineItemId === lineItemId ? { ...alert, resolved: true, resolvedAt: new Date().toISOString() } : alert
-    );
-    setAlerts(updatedAlerts);
-    toast.success(`Alert for line item ${lineItemId} marked as resolved`);
-  };
-
-  const handleResolveAll = () => {
-    const selectedAlerts = filteredAlerts.filter(alert => !alert.resolved).map(alert => alert.lineItemId);
+  const handleResolveSelected = () => {
     if (selectedAlerts.length === 0) {
-      toast.info("No active alerts to resolve");
+      toast.info("No alerts selected");
       return;
     }
-    
-    resolveAllAlerts(selectedAlerts);
-    
-    const updatedAlerts = alerts.map(alert => 
-      selectedAlerts.includes(alert.lineItemId) ? 
-        { ...alert, resolved: true, resolvedAt: new Date().toISOString() } : alert
-    );
-    
+
+    // Update alerts in state
+    const updatedAlerts = alerts.map(alert => {
+      if (selectedAlerts.includes(alert.lineItemId)) {
+        return {
+          ...alert,
+          resolved: true,
+          resolvedAt: new Date().toISOString()
+        };
+      }
+      return alert;
+    });
+
     setAlerts(updatedAlerts);
-    toast.success(`${selectedAlerts.length} alerts marked as resolved`);
+    
+    // Update localStorage
+    localStorage.setItem("alertHistory", JSON.stringify(updatedAlerts));
+    
+    // Update individual alert records
+    selectedAlerts.forEach(lineItemId => {
+      const alert = alerts.find(a => a.lineItemId === lineItemId);
+      if (alert) {
+        updateAlertHistory({
+          ...alert,
+          resolved: true
+        });
+      }
+    });
+
+    toast.success(`${selectedAlerts.length} alert(s) marked as resolved`);
+    setSelectedAlerts([]);
+  };
+
+  const handleCheckboxChange = (lineItemId: string) => {
+    setSelectedAlerts(prev => {
+      if (prev.includes(lineItemId)) {
+        return prev.filter(id => id !== lineItemId);
+      } else {
+        return [...prev, lineItemId];
+      }
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAlerts(alerts.filter(alert => !alert.resolved).map(alert => alert.lineItemId));
+    } else {
+      setSelectedAlerts([]);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    } catch (e) {
+      return "Invalid date";
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-2 mb-4">
-        <Button variant="ghost" size="sm" onClick={onBackClick}>
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back to Views
-        </Button>
-        <h2 className="text-xl font-semibold">Alert History</h2>
-      </div>
-      
-      <Card className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="space-y-2">
-            <Label htmlFor="order-filter">Filter by Order ID</Label>
-            <Input 
-              id="order-filter"
-              placeholder="Enter Order ID" 
-              value={orderFilter}
-              onChange={(e) => setOrderFilter(e.target.value)}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="status-filter">Status</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger id="status-filter">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="date-filter">Alert Date</Label>
-            <Input 
-              id="date-filter"
-              type="date" 
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-            />
-          </div>
-        </div>
-        
-        <div className="flex justify-end mb-4">
-          <Button onClick={handleResolveAll} variant="outline">
-            Resolve All Matching
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="sm" onClick={onBackClick}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
           </Button>
+          <h2 className="text-xl font-semibold">Alert History</h2>
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left p-3 font-medium">Line Item ID</th>
-                <th className="text-left p-3 font-medium">Order ID</th>
-                <th className="text-left p-3 font-medium">Client</th>
-                <th className="text-left p-3 font-medium">Alerted At</th>
-                <th className="text-left p-3 font-medium">Alerted To</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-right p-3 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAlerts.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-6 text-gray-500">
-                    No alerts matching current filters
-                  </td>
-                </tr>
-              )}
-              {filteredAlerts.map((alert) => (
-                <tr key={alert.lineItemId} className="border-b border-gray-100">
-                  <td className="p-3">{alert.lineItemId}</td>
-                  <td className="p-3">{alert.orderId}</td>
-                  <td className="p-3">{alert.client}</td>
-                  <td className="p-3">{new Date(alert.alertedAt).toLocaleString()}</td>
-                  <td className="p-3">{alert.alertedBy}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      alert.resolved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      {alert.resolved ? "Resolved" : "Active"}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right">
+        <Button 
+          onClick={handleResolveSelected} 
+          disabled={selectedAlerts.length === 0}
+          size="sm"
+        >
+          <Check className="h-4 w-4 mr-1" />
+          Resolve Selected ({selectedAlerts.length})
+        </Button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">
+                <input 
+                  type="checkbox" 
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+              </TableHead>
+              <TableHead>Line Item ID</TableHead>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Client</TableHead>
+              <TableHead>Alerted At</TableHead>
+              <TableHead>Alerted By</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Resolved At</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {alerts.length > 0 ? (
+              alerts.map((alert) => (
+                <TableRow 
+                  key={alert.lineItemId}
+                  className={alert.resolved ? "bg-gray-50" : undefined}
+                >
+                  <TableCell>
                     {!alert.resolved && (
-                      <Button size="sm" variant="outline" onClick={() => handleResolve(alert.lineItemId)}>
-                        Mark Resolved
-                      </Button>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedAlerts.includes(alert.lineItemId)}
+                        onChange={() => handleCheckboxChange(alert.lineItemId)}
+                        className="rounded border-gray-300"
+                      />
                     )}
-                    {alert.resolved && (
-                      <span className="text-sm text-gray-400">
-                        Resolved {alert.resolvedAt && new Date(alert.resolvedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  </TableCell>
+                  <TableCell>{alert.lineItemId}</TableCell>
+                  <TableCell>{alert.orderId}</TableCell>
+                  <TableCell>{alert.client}</TableCell>
+                  <TableCell>{formatDate(alert.alertedAt)}</TableCell>
+                  <TableCell>{alert.alertedBy}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      alert.resolved 
+                      ? "bg-green-100 text-green-800" 
+                      : "bg-red-100 text-red-800"
+                    }`}>
+                      {alert.resolved ? "Resolved" : "Pending"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {alert.resolved && alert.resolvedAt 
+                      ? formatDate(alert.resolvedAt)
+                      : "—"}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                  No alerts found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
