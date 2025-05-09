@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import TopNavigation from "@/components/TopNavigation";
 import TeamPanel from "@/components/TeamPanel";
+import UncOperative1Bot from "@/components/UncOperative1Bot";
 
 const teamDescriptions = {
   sales: "Manage leads, track sales performance, and monitor pipeline progress with real-time data.",
@@ -88,6 +89,9 @@ const Index: React.FC = () => {
             className="border-l-4 border-operative-red"
             badge={alertCount > 0 ? { count: alertCount, label: "new alerts" } : undefined}
           />
+          
+          {/* The new uncOperative1 Bot panel */}
+          <UncOperative1Bot />
         </div>
       </div>
     </div>
