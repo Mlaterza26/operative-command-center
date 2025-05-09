@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import FinanceViewList from "@/components/FinanceViewList";
 import FinanceDetailView from "@/components/FinanceDetailView";
 import AlertHistory from "@/components/AlertHistory";
+import CsvTestingComponent from "@/components/CsvTestingComponent";
 
 export interface CustomView {
   id: string;
@@ -31,7 +32,7 @@ export type AlertHistoryItem = {
   resolvedAt?: string;
 };
 
-type Tab = "views" | "details" | "history";
+type Tab = "views" | "details" | "history" | "csvTesting";
 
 const Finance: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("views");
@@ -108,26 +109,32 @@ const Finance: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Finance</h1>
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 overflow-x-auto pb-2">
             <button 
-              className={`text-sm font-medium ${activeTab === "views" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+              className={`text-sm font-medium whitespace-nowrap ${activeTab === "views" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
               onClick={() => setActiveTab("views")}
             >
               Custom Views
             </button>
             {activeView && (
               <button
-                className={`text-sm font-medium ${activeTab === "details" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+                className={`text-sm font-medium whitespace-nowrap ${activeTab === "details" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
                 onClick={() => setActiveTab("details")}
               >
                 {activeView.name}
               </button>
             )}
             <button 
-              className={`text-sm font-medium ${activeTab === "history" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+              className={`text-sm font-medium whitespace-nowrap ${activeTab === "history" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
               onClick={handleShowAlertHistory}
             >
               Alert History
+            </button>
+            <button 
+              className={`text-sm font-medium whitespace-nowrap ${activeTab === "csvTesting" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+              onClick={() => setActiveTab("csvTesting")}
+            >
+              CSV Testing
             </button>
           </div>
         </div>
@@ -149,6 +156,10 @@ const Finance: React.FC = () => {
         
         {activeTab === "history" && (
           <AlertHistory onBackClick={() => setActiveTab("views")} />
+        )}
+
+        {activeTab === "csvTesting" && (
+          <CsvTestingComponent />
         )}
       </div>
     </div>
