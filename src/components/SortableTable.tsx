@@ -9,12 +9,15 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowDown, ArrowUp, Check, CircleCheck } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, CircleCheck, FileText } from "lucide-react";
 import { toast } from "sonner";
 import AlertModal from "./AlertModal";
 import { LineItem } from "./FinanceDetailView";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { isReviewed, markAsReviewed, getReviewInfo, removeReview } from "@/utils/reviewStorage";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export interface TableColumn {
   key: string;
@@ -51,6 +54,21 @@ const SortableTable: React.FC<SortableTableProps> = ({
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [selectedLineItem, setSelectedLineItem] = useState<LineItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewItemId, setReviewItemId] = useState<string | null>(null);
+  const [reviewedRows, setReviewedRows] = useState<Record<string, boolean>>({});
+
+  // Initialize reviewed rows from localStorage
+  React.useEffect(() => {
+    const newReviewedRows: Record<string, boolean> = {};
+    data.forEach(item => {
+      if (item.id && isReviewed(item.id)) {
+        newReviewedRows[item.id] = true;
+      }
+    });
+    setReviewedRows(newReviewedRows);
+  }, [data]);
 
   const handleSort = (key: string) => {
     onSort(key);
@@ -87,6 +105,46 @@ const SortableTable: React.FC<SortableTableProps> = ({
     }
   };
 
+  const openReviewDialog = (itemId: string) => {
+    setReviewItemId(itemId);
+    const existingReview = getReviewInfo(itemId);
+    if (existingReview) {
+      setReviewNotes(existingReview.notes);
+    } else {
+      setReviewNotes("");
+    }
+    setReviewDialogOpen(true);
+  };
+
+  const handleSubmitReview = () => {
+    if (!reviewItemId) return;
+    
+    markAsReviewed(reviewItemId, reviewNotes);
+    
+    // Update UI state
+    const newReviewedRows = {...reviewedRows};
+    newReviewedRows[reviewItemId] = true;
+    setReviewedRows(newReviewedRows);
+    
+    setReviewDialogOpen(false);
+    toast.success("Review saved successfully", {
+      description: reviewNotes ? "Your notes have been saved with this review" : "Item marked as reviewed"
+    });
+  };
+
+  const handleRemoveReview = (itemId: string) => {
+    removeReview(itemId);
+    
+    // Update UI state
+    const newReviewedRows = {...reviewedRows};
+    delete newReviewedRows[itemId];
+    setReviewedRows(newReviewedRows);
+    
+    toast.success("Review status removed", {
+      description: "This item is no longer marked as reviewed"
+    });
+  };
+
   // Function to display status badge
   const getStatusBadge = (item: any) => {
     if (item.alertedTo) {
@@ -108,6 +166,13 @@ const SortableTable: React.FC<SortableTableProps> = ({
         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
           <AlertTriangle className="mr-1 h-3 w-3" />
           Needs Review
+        </Badge>
+      );
+    } else if (reviewedRows[item.id]) {
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          <FileText className="mr-1 h-3 w-3" />
+          Reviewed
         </Badge>
       );
     }
@@ -163,12 +228,14 @@ const SortableTable: React.FC<SortableTableProps> = ({
                 const isIssueRow = flaggedRows[row.id];
                 const isAlertedRow = row.alertedTo;
                 const isIgnoredRow = row.ignored;
+                const isReviewedRow = reviewedRows[row.id];
                 const isEven = index % 2 === 0;
                 
                 let rowClassName = "hover:bg-gray-100 transition-colors";
                 if (isAlertedRow) rowClassName += " bg-blue-50";
                 else if (isIgnoredRow) rowClassName += " bg-gray-50";
                 else if (isIssueRow) rowClassName += " bg-amber-50";
+                else if (isReviewedRow) rowClassName += " bg-green-50";
                 else rowClassName += isEven ? " bg-gray-50" : " bg-white";
                 
                 return (
@@ -237,22 +304,62 @@ const SortableTable: React.FC<SortableTableProps> = ({
                           </TooltipProvider>
                         )}
                         
-                        {!isIgnoredRow && (
+                        {!isReviewedRow ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  onClick={() => handleIgnore(row)}
-                                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={() => openReviewDialog(row.id)}
+                                  className="border-green-500 text-green-700 hover:bg-green-50"
                                 >
-                                  <Check className="mr-1 h-4 w-4" />
-                                  {isAlertedRow ? "Acknowledge" : "Mark Reviewed"}
+                                  <FileText className="mr-1 h-4 w-4" />
+                                  Mark as Reviewed
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Mark this item as reviewed</p>
+                                <p>Mark this item as reviewed with optional notes</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => openReviewDialog(row.id)}
+                                  className="border-green-300 text-green-700 hover:bg-green-50"
+                                >
+                                  <FileText className="mr-1 h-4 w-4" />
+                                  View Review
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>View or edit review notes</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        
+                        {isReviewedRow && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleRemoveReview(row.id)}
+                                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                                >
+                                  <Check className="mr-1 h-4 w-4" />
+                                  Remove Review
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Remove review status</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -303,6 +410,44 @@ const SortableTable: React.FC<SortableTableProps> = ({
         onClose={() => setAlertModalOpen(false)}
         onSend={handleSendAlert}
       />
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Review Item</DialogTitle>
+            <DialogDescription>
+              {reviewedRows[reviewItemId || ''] 
+                ? "This item has already been reviewed. You can update your notes or remove the review status."
+                : "Add notes about your review of this item. These notes will be stored for future reference."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="Enter any notes about your review..."
+              className="min-h-[120px]"
+            />
+          </div>
+          <DialogFooter>
+            {reviewedRows[reviewItemId || ''] && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (reviewItemId) handleRemoveReview(reviewItemId);
+                  setReviewDialogOpen(false);
+                }}
+              >
+                Remove Review
+              </Button>
+            )}
+            <Button variant="default" onClick={handleSubmitReview}>
+              {reviewedRows[reviewItemId || ''] ? "Update Review" : "Save Review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
