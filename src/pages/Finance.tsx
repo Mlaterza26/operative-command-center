@@ -1,10 +1,11 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TopNavigation from "@/components/TopNavigation";
 import FilterBar from "@/components/FilterBar";
 import OrderTable, { Order } from "@/components/OrderTable";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
+// Sample data as fallback
 const financeOrders: Order[] = [
   {
     id: "123456",
@@ -68,6 +69,50 @@ const financeOrders: Order[] = [
   }
 ];
 
+// Function to fetch orders from data source based on admin configuration
+const fetchOrders = async (): Promise<Order[]> => {
+  try {
+    const dataSourceUrl = localStorage.getItem("dataSourceUrl");
+    const isGoogleDrive = localStorage.getItem("isGoogleDrive") === "true";
+    
+    if (!dataSourceUrl) {
+      console.log("No data source configured, using sample data");
+      return financeOrders;
+    }
+
+    if (isGoogleDrive) {
+      console.log("Using Google Drive data source:", dataSourceUrl);
+      // Here you would implement the actual Google Drive API call
+      // This is a placeholder for demonstration
+      
+      // In a real implementation, you would:
+      // 1. Use the Google Drive API to fetch the file
+      // 2. Parse the spreadsheet or document data
+      // 3. Convert it to the Order[] format
+      
+      // For now, we'll return the sample data with a toast notification
+      toast.info("Google Drive integration would fetch data from: " + dataSourceUrl, {
+        description: "This is a demo. In production, data would be fetched from Google Drive."
+      });
+      
+      return financeOrders;
+    } else {
+      // Standard API endpoint fetch
+      const response = await fetch(dataSourceUrl);
+      if (!response.ok) {
+        throw new Error("Failed to fetch orders from API");
+      }
+      return await response.json();
+    }
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    toast.error("Failed to load data from source", {
+      description: "Using sample data instead."
+    });
+    return financeOrders;
+  }
+};
+
 const errorTypeOptions = [
   { label: "All Error Types", value: "all" },
   { label: "CPM Issues", value: "cpm" },
@@ -103,11 +148,23 @@ const clientOptions = [
 ];
 
 const Finance: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>(financeOrders);
+  const { data = financeOrders, isLoading } = useQuery({
+    queryKey: ["financeOrders"],
+    queryFn: fetchOrders,
+    refetchInterval: parseInt(localStorage.getItem("refreshInterval") || "60", 10) * 1000,
+    staleTime: 30000,
+  });
+
+  const [orders, setOrders] = useState<Order[]>(data);
   const [errorType, setErrorType] = useState("all");
   const [orderOwner, setOrderOwner] = useState("all");
   const [dateRange, setDateRange] = useState("7days");
   const [client, setClient] = useState("all");
+
+  // Update orders when data from query changes
+  useEffect(() => {
+    setOrders(data);
+  }, [data]);
 
   const handleAlertAction = (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
@@ -160,19 +217,29 @@ const Finance: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Finance</h1>
           <p className="text-gray-600">
-            Review nightly FTP? Google Driogle Drive report data from Operative.One
+            Review data from {localStorage.getItem("dataSourceUrl") ? 
+              (localStorage.getItem("isGoogleDrive") === "true" ? "Google Drive" : "API endpoint") : 
+              "sample data"}
           </p>
         </div>
 
-        <FilterBar filters={filters} />
+        {isLoading ? (
+          <div className="flex justify-center items-center h-40">
+            <div className="text-lg text-gray-500">Loading data...</div>
+          </div>
+        ) : (
+          <>
+            <FilterBar filters={filters} />
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <OrderTable 
-            orders={orders}
-            onAlertAction={handleAlertAction}
-            onIgnoreAction={handleIgnoreAction}
-          />
-        </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <OrderTable 
+                orders={orders}
+                onAlertAction={handleAlertAction}
+                onIgnoreAction={handleIgnoreAction}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TopNavigation from "@/components/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Settings, Shield, LogOut } from "lucide-react";
+import { Settings, Shield, LogOut, FileCheck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [dataSourceUrl, setDataSourceUrl] = useState("");
+  const [isGoogleDrive, setIsGoogleDrive] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState("60");
   const [adminPassword, setAdminPassword] = useState("");
   
+  // Load saved settings when component mounts
+  useEffect(() => {
+    const savedDataSourceUrl = localStorage.getItem("dataSourceUrl") || "";
+    const savedIsGoogleDrive = localStorage.getItem("isGoogleDrive") === "true";
+    const savedRefreshInterval = localStorage.getItem("refreshInterval") || "60";
+    
+    setDataSourceUrl(savedDataSourceUrl);
+    setIsGoogleDrive(savedIsGoogleDrive);
+    setRefreshInterval(savedRefreshInterval);
+  }, []);
+
   const handleLogout = () => {
     sessionStorage.removeItem("adminAuthenticated");
     toast.success("Logged out successfully");
@@ -23,8 +36,22 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleSaveDataSource = () => {
-    // In a real app, you'd save this to a database or localStorage
+    // Validate Google Drive link if that option is selected
+    if (isGoogleDrive) {
+      // Simple validation for Google Drive links - can be more sophisticated
+      const isValidGoogleDriveUrl = dataSourceUrl.includes("drive.google.com") || 
+                                   dataSourceUrl.includes("docs.google.com") || 
+                                   dataSourceUrl.includes("sheets.google.com");
+      
+      if (!isValidGoogleDriveUrl) {
+        toast.error("Please enter a valid Google Drive URL");
+        return;
+      }
+    }
+    
+    // Store in localStorage
     localStorage.setItem("dataSourceUrl", dataSourceUrl);
+    localStorage.setItem("isGoogleDrive", isGoogleDrive.toString());
     toast.success("Data source URL updated");
   };
 
@@ -73,18 +100,33 @@ const AdminDashboard: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="api-url">API Endpoint URL</Label>
+                  <Label htmlFor="api-url">Data Source URL</Label>
                   <Input
                     id="api-url"
-                    placeholder="https://api.example.com/data"
+                    placeholder="https://drive.google.com/spreadsheets/d/..."
                     value={dataSourceUrl}
                     onChange={(e) => setDataSourceUrl(e.target.value)}
                   />
+                  
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch 
+                      id="google-drive"
+                      checked={isGoogleDrive}
+                      onCheckedChange={setIsGoogleDrive}
+                    />
+                    <Label htmlFor="google-drive">This is a Google Drive link</Label>
+                  </div>
+                  
                   <p className="text-sm text-gray-500">
-                    Enter the URL where your financial data is hosted
+                    {isGoogleDrive 
+                      ? "Enter the Google Drive URL where your financial data is stored. Make sure the file is publicly accessible or has proper sharing permissions." 
+                      : "Enter the URL where your financial data is hosted"}
                   </p>
                 </div>
-                <Button onClick={handleSaveDataSource}>Save Data Source</Button>
+                <Button onClick={handleSaveDataSource}>
+                  <FileCheck className="mr-2 h-4 w-4" />
+                  Save Data Source
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
