@@ -31,8 +31,8 @@ interface LineItemTableProps {
   onIgnoreAction: (lineItemId: string) => void;
 }
 
-// Extracted Table Header component
-const TableHeader: React.FC = () => (
+// Extracted Table Header component - RENAMED TO AVOID CONFLICT
+const LineItemTableHeader: React.FC = () => (
   <TableHeader>
     <TableRow>
       <TableHead>Order ID</TableHead>
@@ -86,7 +86,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({
     <>
       <div className="overflow-x-auto">
         <Table>
-          <TableHeader />
+          <LineItemTableHeader />
           <TableBody>
             {items.map((item) => {
               const monthsSpanned = item.startDate && item.endDate 
