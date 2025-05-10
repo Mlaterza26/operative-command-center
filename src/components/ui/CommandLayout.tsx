@@ -57,26 +57,26 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-operative-navy">
       {/* Sidebar */}
       <div 
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out bg-sidebar border-r border-border/40",
+          "fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out bg-operative-navy-light border-r-2 border-operative-blue/30",
           sidebarOpen ? "w-60" : "w-16"
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4 border-b border-border/40">
+        <div className="flex h-16 items-center justify-between px-4 border-b-2 border-operative-blue/30">
           <div className={cn("flex items-center", !sidebarOpen && "justify-center w-full")}>
             {sidebarOpen ? (
-              <span className="font-bold text-lg text-sidebar-foreground">OpCommand</span>
+              <span className="font-retro text-lg font-bold text-operative-blue animate-neon-flicker">OpCommand</span>
             ) : (
-              <span className="font-bold text-lg text-primary">OC</span>
+              <span className="font-retro text-lg font-bold text-operative-blue animate-neon-flicker">OC</span>
             )}
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
-            className={cn("text-sidebar-foreground", !sidebarOpen && "hidden")}
+            className={cn("text-operative-blue hover:bg-operative-blue/10", !sidebarOpen && "hidden")}
             onClick={() => setSidebarOpen(false)}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -87,7 +87,7 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="mt-2 mx-auto block text-sidebar-foreground"
+            className="mt-2 mx-auto block text-operative-blue hover:bg-operative-blue/10"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
@@ -103,13 +103,13 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
                 className={cn(
                   "group flex items-center px-3 py-2 rounded-md text-sm transition-all duration-200",
                   isActive(item.path) 
-                    ? "bg-sidebar-accent text-sidebar-primary" 
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary",
+                    ? "bg-operative-blue/20 text-operative-teal shadow-neon" 
+                    : "text-operative-teal hover:bg-operative-blue/10 hover:text-white",
                   !sidebarOpen && "justify-center"
                 )}
               >
                 <item.icon className={cn("h-5 w-5", isActive(item.path) && "animate-subtle-bounce")} />
-                {sidebarOpen && <span className="ml-3">{item.label}</span>}
+                {sidebarOpen && <span className="ml-3 font-retro tracking-wide">{item.label}</span>}
               </Link>
             ))}
             
@@ -119,14 +119,14 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
                 onClick={toggleTeamMenu}
                 className={cn(
                   "w-full group flex items-center px-3 py-2 rounded-md text-sm transition-all duration-200",
-                  "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary",
+                  "text-operative-teal hover:bg-operative-blue/10 hover:text-white",
                   !sidebarOpen && "justify-center"
                 )}
               >
                 <Users className="h-5 w-5" />
                 {sidebarOpen && (
                   <>
-                    <span className="ml-3 flex-1">Team</span>
+                    <span className="ml-3 flex-1 font-retro tracking-wide">Team</span>
                     {teamMenuOpen ? 
                       <ChevronDown className="h-4 w-4" /> : 
                       <ChevronRight className="h-4 w-4" />
@@ -144,11 +144,11 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
                       className={cn(
                         "flex items-center px-3 py-1.5 rounded-md text-sm transition-all duration-200",
                         isActive(item.path) 
-                          ? "bg-sidebar-accent text-sidebar-primary" 
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
+                          ? "bg-operative-blue/20 text-operative-teal shadow-neon" 
+                          : "text-operative-teal hover:bg-operative-blue/10 hover:text-white"
                       )}
                     >
-                      <span>{item.label}</span>
+                      <span className="font-retro tracking-wide">{item.label}</span>
                     </Link>
                   ))}
                 </div>
@@ -164,19 +164,19 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
         sidebarOpen ? "ml-60" : "ml-16"
       )}>
         {/* Top navigation bar */}
-        <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur sticky top-0 z-30">
+        <header className="h-16 border-b-2 border-operative-blue/30 bg-operative-navy-light/80 backdrop-blur sticky top-0 z-30">
           <div className="h-full px-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="text-xs text-muted-foreground hidden md:flex">
+              <Button variant="outline" size="sm" className="text-xs text-operative-teal border-operative-blue hover:bg-operative-blue/10 hidden md:flex">
                 <Calendar className="h-3.5 w-3.5 mr-1" />
                 Today
               </Button>
-              <div className="bg-background border border-border/60 rounded-md hidden lg:flex items-center px-2 w-64">
-                <Search className="h-4 w-4 text-muted-foreground" />
+              <div className="bg-operative-navy-light border border-operative-blue/50 rounded-full hidden lg:flex items-center px-4 w-64">
+                <Search className="h-4 w-4 text-operative-teal" />
                 <input 
                   type="text"
                   placeholder="Search..."
-                  className="bg-transparent border-0 h-8 w-full focus:outline-none text-sm text-foreground"
+                  className="bg-transparent border-0 h-8 w-full focus:outline-none text-sm text-operative-teal"
                 />
               </div>
             </div>
@@ -186,31 +186,35 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
                 variant="ghost" 
                 size="icon" 
                 onClick={toggleTheme} 
-                className="text-foreground"
+                className="text-operative-teal hover:bg-operative-blue/10"
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
               
               <div className="relative">
-                <Button variant="ghost" size="icon" className="text-foreground">
+                <Button variant="ghost" size="icon" className="text-operative-teal hover:bg-operative-blue/10">
                   <Bell className="h-5 w-5" />
                 </Button>
                 {notificationCount > 0 && (
-                  <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-primary text-xs text-primary-foreground flex items-center justify-center animate-pulse-glow">
+                  <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-operative-coral text-xs text-white flex items-center justify-center animate-pulse-glow">
                     {notificationCount}
                   </span>
                 )}
               </div>
               
-              <Button variant="ghost" size="icon" className="text-foreground">
-                <User className="h-5 w-5" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="flex items-center justify-center rounded-full bg-operative-red text-white h-8 w-8 hover:shadow-neon-red"
+              >
+                ML
               </Button>
             </div>
           </div>
         </header>
         
         {/* Page content */}
-        <main className="p-4">
+        <main className="p-4 bg-operative-navy">
           {children}
         </main>
       </div>
