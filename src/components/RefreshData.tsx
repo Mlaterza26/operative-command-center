@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Clock } from "lucide-react";  // Changed FileUpload to Upload
+import { Upload, FileText, Clock } from "lucide-react";
 import { LineItem } from "@/components/LineItemTable";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -66,25 +66,38 @@ const RefreshData: React.FC<RefreshDataProps> = ({
       // Simulate data from the file
       const sampleData: LineItem[] = generateSampleData(25);
       
-      // Identify all flagged items (any condition for flagging)
-      const flaggedItemIds = sampleData
-        .filter(item => 
-          (item.costMethod === "CPU" && calculateMonthsSpanned(item) > 1) || 
-          item.approvalStatus === "Pending"
-        )
+      // Explicitly calculate months spanned for each item
+      const processedData = sampleData.map(item => {
+        const monthsSpanned = calculateMonthsSpanned(item);
+        const isCPUMultiMonth = item.costMethod === "CPU" && monthsSpanned > 1;
+        
+        // Set the flag based on our condition
+        return {
+          ...item,
+          hasFlag: isCPUMultiMonth
+        };
+      });
+      
+      // Identify all flagged items
+      const flaggedItemIds = processedData
+        .filter(item => item.hasFlag)
         .map(item => item.id);
       
       // Identify specifically CPU multi-month items
-      const cpuMultiMonthItems = sampleData.filter(item => 
+      const cpuMultiMonthItems = processedData.filter(item => 
         item.costMethod === "CPU" && calculateMonthsSpanned(item) > 1
       );
+      
+      console.log("Total items:", processedData.length);
+      console.log("Flagged items:", flaggedItemIds.length);
+      console.log("CPU multi-month items:", cpuMultiMonthItems.length);
       
       // Create a new history entry
       const newEntry: UploadHistoryEntry = {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
         fileName: file.name,
-        itemCount: sampleData.length,
+        itemCount: processedData.length,
         flaggedItems: flaggedItemIds.length,
         flaggedCPUMultiMonthItems: cpuMultiMonthItems.length
       };
@@ -93,12 +106,12 @@ const RefreshData: React.FC<RefreshDataProps> = ({
       setUploadHistory(prev => [newEntry, ...prev]);
       
       // Update both the main data and CPU multi-month specific data
-      onDataRefreshed(sampleData, flaggedItemIds);
+      onDataRefreshed(processedData, flaggedItemIds);
       onCPUMultiMonthDataUpdated(cpuMultiMonthItems);
       
       toast({
         title: "Data refreshed successfully",
-        description: `Processed ${sampleData.length} line items, found ${flaggedItemIds.length} flagged items including ${cpuMultiMonthItems.length} CPU multi-month items.`,
+        description: `Processed ${processedData.length} line items, found ${flaggedItemIds.length} flagged items including ${cpuMultiMonthItems.length} CPU multi-month items.`,
       });
       
       setFile(null);
@@ -135,15 +148,45 @@ const RefreshData: React.FC<RefreshDataProps> = ({
     const clients = ["Nike", "Adidas", "Puma", "Reebok", "Under Armour"];
     const owners = ["John Smith", "Jane Doe", "Bob Johnson", "Alice Williams"];
     
-    for (let i = 0; i < count; i++) {
+    // Ensure we have at least some CPU multi-month items
+    const guaranteedCPUMultiMonthCount = Math.floor(count * 0.3); // 30% of items
+    
+    // Create guaranteed CPU multi-month items
+    for (let i = 0; i < guaranteedCPUMultiMonthCount; i++) {
+      const id = `LI-${Date.now()}-${i}`;
+      const orderId = `ORD-${Math.floor(Math.random() * 10000)}`;
+      
+      // Force this to be CPU and multi-month
+      items.push({
+        id,
+        orderId,
+        orderName: `Order ${orderId}`,
+        client: clients[Math.floor(Math.random() * clients.length)],
+        startDate: "2023-01-01",
+        endDate: "2023-03-31", // 3 months
+        costMethod: "CPU", // Force CPU
+        quantity: `${Math.floor(Math.random() * 1000000)}`,
+        netCost: `$${(Math.random() * 10000).toFixed(2)}`,
+        deliveryPercent: `${(Math.random() * 100).toFixed(2)}%`,
+        approvalStatus: statuses[Math.floor(Math.random() * statuses.length)],
+        orderOwner: owners[Math.floor(Math.random() * owners.length)],
+        hasFlag: true, // Pre-flagged
+        alertedTo: "",
+        months: "Jan,Feb,Mar" // 3 months
+      });
+    }
+    
+    // Create remaining random items
+    for (let i = guaranteedCPUMultiMonthCount; i < count; i++) {
       const id = `LI-${Date.now()}-${i}`;
       const orderId = `ORD-${Math.floor(Math.random() * 10000)}`;
       const costMethod = costMethods[Math.floor(Math.random() * costMethods.length)];
       
       // For some items, create multi-month spans
-      const isMultiMonth = Math.random() > 0.6;
+      const isMultiMonth = Math.random() > 0.7;
       const startDate = "2023-01-01";
       const endDate = isMultiMonth ? "2023-03-31" : "2023-01-31";
+      const monthsArray = isMultiMonth ? ["Jan", "Feb", "Mar"] : ["Jan"];
       
       items.push({
         id,
@@ -158,10 +201,10 @@ const RefreshData: React.FC<RefreshDataProps> = ({
         deliveryPercent: `${(Math.random() * 100).toFixed(2)}%`,
         approvalStatus: statuses[Math.floor(Math.random() * statuses.length)],
         orderOwner: owners[Math.floor(Math.random() * owners.length)],
-        hasFlag: costMethod === "CPU" && isMultiMonth,
+        hasFlag: costMethod === "CPU" && isMultiMonth, // Flag only CPU multi-month
         alertedTo: "",
         cpm: costMethod === "CPM" ? `$${(Math.random() * 10).toFixed(2)}` : undefined,
-        months: isMultiMonth ? "Jan,Feb,Mar" : "Jan"
+        months: monthsArray.join(",")
       });
     }
     
@@ -187,8 +230,21 @@ const RefreshData: React.FC<RefreshDataProps> = ({
               disabled={!file || isProcessing}
               className="flex items-center gap-2"
             >
-              <Upload className="h-4 w-4" />  {/* Changed from FileUpload to Upload */}
+              <Upload className="h-4 w-4" />
               {isProcessing ? "Processing..." : "Refresh Data"}
+            </Button>
+            
+            {/* Test Data Button */}
+            <Button 
+              onClick={() => {
+                // Create a mock file
+                const mockFile = new File([""], "test-data.csv", { type: "text/csv" });
+                setFile(mockFile);
+                setTimeout(() => processFile(), 100);
+              }}
+              className="ml-2 bg-gray-200 text-gray-800 hover:bg-gray-300"
+            >
+              Generate Test Data
             </Button>
           </div>
           <p className="mt-2 text-sm text-gray-500">
