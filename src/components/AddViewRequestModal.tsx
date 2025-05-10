@@ -25,8 +25,9 @@ const AddViewRequestModal: React.FC<AddViewRequestModalProps> = ({
   const [functionality, setFunctionality] = useState("");
   const [sourceData, setSourceData] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
-  const [submissionMethod, setSubmissionMethod] = useState<"asana" | "email" | "none">("none");
+  const [submissionMethod, setSubmissionMethod] = useState<"asana" | "zapier" | "email" | "none">("none");
   const [asanaWebhook, setAsanaWebhook] = useState("");
+  const [zapierWebhook, setZapierWebhook] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,6 +80,25 @@ Additional Notes: ${additionalNotes}
             }),
           });
           toast.success("Request sent to Asana");
+        } else if (submissionMethod === "zapier" && zapierWebhook) {
+          // Send to Zapier webhook which can create an Asana task
+          await fetch(zapierWebhook, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            mode: "no-cors", // Handle CORS issues
+            body: JSON.stringify({
+              task_name: requestName,
+              description: description,
+              functionality: functionality,
+              source_data: sourceData,
+              additional_notes: additionalNotes,
+              timestamp: new Date().toISOString(),
+              triggered_from: window.location.origin
+            }),
+          });
+          toast.success("Request sent to Zapier");
         } else if (submissionMethod === "email" && emailAddress) {
           // Create mailto link to send email
           const subject = encodeURIComponent(`New Finance View Request: ${requestName}`);
@@ -116,6 +136,7 @@ Additional Notes: ${additionalNotes}
     setAdditionalNotes("");
     setSubmissionMethod("none");
     setAsanaWebhook("");
+    setZapierWebhook("");
     setEmailAddress("");
   };
 
@@ -187,7 +208,7 @@ Additional Notes: ${additionalNotes}
             <Label className="mb-2 block">Send request to:</Label>
             <RadioGroup 
               value={submissionMethod} 
-              onValueChange={(value) => setSubmissionMethod(value as "asana" | "email" | "none")}
+              onValueChange={(value) => setSubmissionMethod(value as "asana" | "zapier" | "email" | "none")}
               className="flex flex-col space-y-2"
             >
               <div className="flex items-center space-x-2">
@@ -196,7 +217,11 @@ Additional Notes: ${additionalNotes}
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="asana" id="asana" />
-                <Label htmlFor="asana" className="cursor-pointer">Create task in Asana</Label>
+                <Label htmlFor="asana" className="cursor-pointer">Create task in Asana directly</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="zapier" id="zapier" />
+                <Label htmlFor="zapier" className="cursor-pointer">Use Zapier to create Asana task</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="email" id="email" />
@@ -216,6 +241,21 @@ Additional Notes: ${additionalNotes}
               />
               <p className="text-xs text-gray-500">
                 Paste your Asana webhook URL to create tasks automatically
+              </p>
+            </div>
+          )}
+          
+          {submissionMethod === "zapier" && (
+            <div className="grid gap-2">
+              <Label htmlFor="zapierWebhook">Zapier Webhook URL</Label>
+              <Input
+                id="zapierWebhook"
+                placeholder="Enter your Zapier webhook URL"
+                value={zapierWebhook}
+                onChange={(e) => setZapierWebhook(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                Paste your Zapier webhook URL that creates Asana tasks
               </p>
             </div>
           )}
