@@ -19,10 +19,10 @@ const TopNavigation: React.FC = () => {
   const isDark = theme === "dark";
 
   return (
-    <div className={`w-full border-b ${isDark ? 'border-operative-border/30 bg-operative-navy' : 'border-gray-200'}`}>
+    <div className={`w-full border-b ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200'}`}>
       <div className="flex items-center px-6 py-4">
         <Link to="/" className="mr-10">
-          <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-operative-black'} tracking-wide`}>
+          <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} tracking-wide`}>
             OPERATIVE CONTROL
           </h1>
         </Link>
@@ -34,11 +34,11 @@ const TopNavigation: React.FC = () => {
               className={`text-sm font-medium py-2 border-b-2 transition-all duration-200 ${
                 location.pathname === item.path
                   ? isDark 
-                    ? "border-operative-blue text-white" 
-                    : "border-operative-black text-operative-black"
+                    ? "border-indigo-500 text-white" 
+                    : "border-indigo-600 text-gray-800"
                   : isDark
-                    ? "border-transparent text-operative-text-body hover:text-white hover:border-operative-blue/50"
-                    : "border-transparent text-gray-600 hover:text-operative-black"
+                    ? "border-transparent text-gray-300 hover:text-white hover:border-indigo-400"
+                    : "border-transparent text-gray-600 hover:text-gray-800"
               }`}
             >
               {item.name}
@@ -47,10 +47,10 @@ const TopNavigation: React.FC = () => {
         </nav>
         <Link 
           to="/settings" 
-          className={`ml-6 p-2 rounded-full hover:bg-${isDark ? 'operative-navy-light' : 'gray-100'} transition-colors duration-200`}
+          className={`ml-6 p-2 rounded-full hover:bg-${isDark ? 'gray-800' : 'gray-100'} transition-colors duration-200`}
           title="Settings"
         >
-          <Settings className={`h-5 w-5 ${isDark ? 'text-operative-text-body' : 'text-gray-600'}`} />
+          <Settings className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-600'}`} />
         </Link>
       </div>
     </div>
