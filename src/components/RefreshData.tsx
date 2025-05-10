@@ -458,9 +458,9 @@ const RefreshData: React.FC<RefreshDataProps> = ({
         setParseErrors(prev => [...prev, "No CPU multi-month items found. Make sure your file has Line Item Cost Method = 'CPU' and date spans > 1 month."]);
         
         toast({
-          title: "Data refreshed with warning",
-          description: `Processed ${processedData.length} line items, but found no CPU multi-month items.`,
-          variant: "warning"
+           title: "Data refreshed with warning",
+            description: `Processed ${processedData.length} line items, but found no CPU multi-month items.`,
+            variant: "default" // Changed to "default"
         });
       } else {
         toast({
