@@ -21,6 +21,9 @@ export interface CustomView {
     client?: string;
     costMethod?: string;
   };
+  sourceData?: string;
+  functionality?: string;
+  additionalNotes?: string;
 }
 
 export type AlertHistoryItem = {
