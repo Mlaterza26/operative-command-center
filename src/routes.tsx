@@ -8,6 +8,7 @@ import PlaceholderPage from '@/pages/PlaceholderPage';
 import Finance from '@/pages/Finance';
 import Settings from '@/pages/Settings';
 import { ThemeProvider } from '@/hooks/use-theme';
+import CommandLayout from '@/components/ui/CommandLayout';
 import { ViewContextProvider } from '@/hooks/use-view-context';
 import { ZapierConfigProvider } from '@/hooks/use-zapier-config';
 import { AIChatProvider } from '@/hooks/use-ai-chat';
@@ -22,14 +23,13 @@ const AppRoutes: React.FC = () => {
           <AIChatProvider>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={<Index />} />
-              <Route path="/sales" element={<PlaceholderPage />} />
-              <Route path="/planning" element={<PlaceholderPage />} />
-              <Route path="/client-success" element={<PlaceholderPage />} />
-              <Route path="/ad-ops" element={<PlaceholderPage />} />
-              <Route path="/finance" element={<Finance />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/reports" element={<PlaceholderPage />} />
+              <Route path="/dashboard" element={<CommandLayout><App /></CommandLayout>} />
+              <Route path="/sales" element={<CommandLayout><PlaceholderPage /></CommandLayout>} />
+              <Route path="/planning" element={<CommandLayout><PlaceholderPage /></CommandLayout>} />
+              <Route path="/client-success" element={<CommandLayout><PlaceholderPage /></CommandLayout>} />
+              <Route path="/ad-ops" element={<CommandLayout><PlaceholderPage /></CommandLayout>} />
+              <Route path="/finance" element={<CommandLayout><Finance /></CommandLayout>} />
+              <Route path="/settings" element={<CommandLayout><Settings /></CommandLayout>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ChatBot />

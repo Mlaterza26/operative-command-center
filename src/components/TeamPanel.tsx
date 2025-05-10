@@ -3,7 +3,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight } from "lucide-react";
 
 interface TeamPanelProps {
   title: string;
@@ -31,33 +30,32 @@ const TeamPanel: React.FC<TeamPanelProps> = ({
     <Link to={path}>
       <div
         className={cn(
-          "miami-panel group bg-operative-navy-light p-6 rounded-xl border-2 border-operative-blue/30 hover:border-operative-blue transition-all duration-300 transform hover:translate-y-[-4px] hover:shadow-neon h-full",
+          "bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-300 h-full transform hover:-translate-y-1",
           className
         )}
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
-              {icon && <div className="mr-3 text-operative-blue">{icon}</div>}
-              <h2 className="text-xl font-retro font-bold tracking-wide text-operative-teal group-hover:animate-neon-flicker">{title}</h2>
+              {icon && <div className="mr-3">{icon}</div>}
+              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
             </div>
             {badge && (
-              <Badge variant="destructive" className="ml-2 font-retro bg-operative-coral text-white border-none animate-pulse">
+              <Badge variant="destructive" className="ml-2 animate-pulse">
                 {badge.count} {badge.label}
               </Badge>
             )}
           </div>
           
           {subtitle && (
-            <p className="text-sm font-medium text-operative-teal/80 mb-2 font-retro">{subtitle}</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">{subtitle}</p>
           )}
           
-          <p className="text-white/80 mb-4 flex-grow">{description}</p>
+          <p className="text-gray-600 mb-4 flex-grow">{description}</p>
           
           <div className="flex justify-end">
-            <span className="flex items-center text-sm font-medium text-operative-blue font-retro group-hover:text-operative-teal transition-colors">
-              Access Dashboard
-              <ChevronRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
+            <span className="text-sm font-medium text-operative-black hover:text-operative-red transition-colors">
+              Access Dashboard →
             </span>
           </div>
         </div>
