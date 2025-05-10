@@ -4,10 +4,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Upload, FileText, Clock } from "lucide-react";
-import { LineItem } from "@/components/LineItemTable";
 import { useToast } from "@/components/ui/use-toast";
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+
+// Define types more clearly
+interface LineItem {
+  id: string;
+  orderId: string;
+  orderName: string;
+  client: string;
+  startDate: string;
+  endDate: string;
+  costMethod: string;
+  quantity: string;
+  netCost: string;
+  deliveryPercent: string;
+  approvalStatus: string;
+  orderOwner: string;
+  hasFlag: boolean;
+  alertedTo: string;
+  cpm: string;
+  months: string;
+}
 
 interface UploadHistoryEntry {
   id: string;
@@ -35,19 +54,25 @@ const RefreshData: React.FC<RefreshDataProps> = ({
 
   // Load upload history from localStorage on component mount
   useEffect(() => {
-    const savedHistory = localStorage.getItem("uploadHistory");
-    if (savedHistory) {
-      try {
+    try {
+      const savedHistory = localStorage.getItem("uploadHistory");
+      if (savedHistory) {
         setUploadHistory(JSON.parse(savedHistory));
-      } catch (error) {
-        console.error("Error parsing upload history", error);
       }
+    } catch (error) {
+      console.error("Error parsing upload history", error);
+      // Don't let a localStorage error crash the component
+      localStorage.removeItem("uploadHistory");
     }
   }, []);
 
   // Save upload history to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("uploadHistory", JSON.stringify(uploadHistory));
+    try {
+      localStorage.setItem("uploadHistory", JSON.stringify(uploadHistory));
+    } catch (error) {
+      console.error("Error saving upload history", error);
+    }
   }, [uploadHistory]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,8 +86,14 @@ const RefreshData: React.FC<RefreshDataProps> = ({
   const readFileAsText = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          resolve(event.target.result as string);
+        } else {
+          reject(new Error("Failed to read file"));
+        }
+      };
+      reader.onerror = (error) => reject(error);
       reader.readAsText(file);
     });
   };
@@ -71,8 +102,14 @@ const RefreshData: React.FC<RefreshDataProps> = ({
   const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as ArrayBuffer);
-      reader.onerror = reject;
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          resolve(event.target.result as ArrayBuffer);
+        } else {
+          reject(new Error("Failed to read file"));
+        }
+      };
+      reader.onerror = (error) => reject(error);
       reader.readAsArrayBuffer(file);
     });
   };
@@ -86,37 +123,50 @@ const RefreshData: React.FC<RefreshDataProps> = ({
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
+        dynamicTyping: true, // Automatically convert numeric values
         complete: (results) => {
           try {
+            if (!results.data || results.data.length === 0) {
+              throw new Error("No data found in CSV file");
+            }
+            
             console.log("CSV Headers:", Object.keys(results.data[0] || {}));
             
-            const lineItems: LineItem[] = results.data
-              .filter((row: any) => row["Line Item ID"] && !isNaN(Number(row["Line Item ID"])))
-              .map((row: any, index) => {
-                // Check if required fields are present
-                if (!row["Line Item ID"]) {
-                  errors.push(`Row ${index + 1}: Missing Line Item ID`);
-                }
-                
-                return {
-                  id: row["Line Item ID"]?.toString() || `LI-${Date.now()}-${index}`,
-                  orderId: row["Order ID"]?.toString() || "",
-                  orderName: row["Order Name"] || `Order ${row["Order ID"] || index}`,
-                  client: row["Primary Advertiser"] || row["Billing Account Name"] || "Unknown Client",
-                  startDate: row["Line Item Start Date"] || "",
-                  endDate: row["Line Item End Date"] || "",
-                  costMethod: row["Line Item Cost Method"] || "Unknown",
-                  quantity: row["Line Item Quantity"]?.toString() || "",
-                  netCost: row["Net Line Item Cost"] ? `$${row["Net Line Item Cost"]}` : "$0.00",
-                  deliveryPercent: "0%", // Not present in your CSV
-                  approvalStatus: row["Invoice Review Status"] || "Pending",
-                  orderOwner: row["Order Owner"] || "Unknown",
-                  hasFlag: false, // Will be set later
-                  alertedTo: "", // Not present in your CSV
-                  cpm: row["Net Line Item Unit Cost"] ? `$${row["Net Line Item Unit Cost"]}` : "",
-                  months: "" // Will calculate based on start/end dates
-                };
-              });
+            const lineItems: LineItem[] = [];
+            
+            // Map each row to a LineItem, with better error handling
+            results.data.forEach((row: any, index) => {
+              // Skip rows without Line Item ID
+              if (!row["Line Item ID"] && row["Line Item ID"] !== 0) {
+                errors.push(`Row ${index + 1}: Missing Line Item ID`);
+                return;
+              }
+              
+              // Convert Line Item ID to string (in case dynamicTyping made it a number)
+              const lineItemId = String(row["Line Item ID"]);
+              
+              // Create the line item object
+              const lineItem: LineItem = {
+                id: lineItemId,
+                orderId: row["Order ID"] !== undefined ? String(row["Order ID"]) : "",
+                orderName: row["Order Name"] || `Order ${row["Order ID"] || index}`,
+                client: row["Primary Advertiser"] || row["Billing Account Name"] || "Unknown Client",
+                startDate: row["Line Item Start Date"] || "",
+                endDate: row["Line Item End Date"] || "",
+                costMethod: row["Line Item Cost Method"] || "Unknown",
+                quantity: row["Line Item Quantity"] !== undefined ? String(row["Line Item Quantity"]) : "",
+                netCost: row["Net Line Item Cost"] !== undefined ? `$${row["Net Line Item Cost"]}` : "$0.00",
+                deliveryPercent: "0%", // Not present in your CSV
+                approvalStatus: row["Invoice Review Status"] || "Pending",
+                orderOwner: row["Order Owner"] || "Unknown",
+                hasFlag: false, // Will be set later
+                alertedTo: "", // Not present in your CSV
+                cpm: row["Net Line Item Unit Cost"] !== undefined ? `$${row["Net Line Item Unit Cost"]}` : "",
+                months: "" // Will calculate based on start/end dates
+              };
+              
+              lineItems.push(lineItem);
+            });
             
             if (errors.length > 0) {
               console.warn("Parse warnings:", errors);
@@ -145,46 +195,101 @@ const RefreshData: React.FC<RefreshDataProps> = ({
   // Parse Excel data into LineItems
   const parseExcel = async (file: File): Promise<LineItem[]> => {
     const buffer = await readFileAsArrayBuffer(file);
-    const workbook = XLSX.read(buffer, { type: 'array' });
+    const workbook = XLSX.read(buffer, { 
+      type: 'array',
+      cellDates: true // Handle dates properly
+    });
     const errors: string[] = [];
     
     // Get the first sheet
     const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new Error("No sheets found in Excel file");
+    }
+    
     const worksheet = workbook.Sheets[firstSheetName];
+    if (!worksheet) {
+      throw new Error("Could not read sheet in Excel file");
+    }
     
-    // Convert to JSON
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    // Convert to JSON with headers
+    const data = XLSX.utils.sheet_to_json(worksheet, { 
+      header: "A",
+      blankrows: false
+    });
     
-    console.log("Excel Headers:", Object.keys(data[0] || {}));
+    if (data.length <= 1) { // Only header row or empty
+      throw new Error("No data found in Excel file");
+    }
     
-    // Map to LineItems
-    const lineItems: LineItem[] = data
-      .filter((row: any) => row["Line Item ID"] && !isNaN(Number(row["Line Item ID"])))
-      .map((row: any, index) => {
-        // Check if required fields are present
-        if (!row["Line Item ID"]) {
-          errors.push(`Row ${index + 1}: Missing Line Item ID`);
+    // Get headers from first row
+    const headers = data[0];
+    const headerMap: {[key: string]: string} = {};
+    
+    Object.entries(headers).forEach(([col, header]) => {
+      headerMap[col] = String(header);
+    });
+    
+    // Find the key for "Line Item ID" in the header map
+    const lineItemIdKey = Object.entries(headerMap)
+      .find(([_, val]) => val === "Line Item ID")?.[0];
+    
+    if (!lineItemIdKey) {
+      throw new Error("Missing 'Line Item ID' column in Excel file");
+    }
+    
+    console.log("Excel Headers:", headerMap);
+    
+    // Map to LineItems, skipping header row
+    const lineItems: LineItem[] = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i] as any;
+      
+      // Skip rows without Line Item ID
+      if (!row[lineItemIdKey]) {
+        errors.push(`Row ${i + 1}: Missing Line Item ID`);
+        continue;
+      }
+      
+      // Function to safely get a cell value by header name
+      const getCell = (headerName: string): any => {
+        const key = Object.entries(headerMap)
+          .find(([_, val]) => val === headerName)?.[0];
+        return key ? row[key] : undefined;
+      };
+      
+      // Format date if it's a Date object
+      const formatDate = (date: any): string => {
+        if (!date) return "";
+        if (date instanceof Date) {
+          return date.toISOString().split('T')[0]; // YYYY-MM-DD
         }
-        
-        return {
-          id: row["Line Item ID"]?.toString() || `LI-${Date.now()}-${index}`,
-          orderId: row["Order ID"]?.toString() || "",
-          orderName: row["Order Name"] || `Order ${row["Order ID"] || index}`,
-          client: row["Primary Advertiser"] || row["Billing Account Name"] || "Unknown Client",
-          startDate: row["Line Item Start Date"] || "",
-          endDate: row["Line Item End Date"] || "",
-          costMethod: row["Line Item Cost Method"] || "Unknown",
-          quantity: row["Line Item Quantity"]?.toString() || "",
-          netCost: row["Net Line Item Cost"] ? `$${row["Net Line Item Cost"]}` : "$0.00",
-          deliveryPercent: "0%", // Not present in your Excel
-          approvalStatus: row["Invoice Review Status"] || "Pending",
-          orderOwner: row["Order Owner"] || "Unknown",
-          hasFlag: false, // Will be set later
-          alertedTo: "", // Not present in your Excel
-          cpm: row["Net Line Item Unit Cost"] ? `$${row["Net Line Item Unit Cost"]}` : "",
-          months: "" // Will calculate based on start/end dates
-        };
-      });
+        return String(date);
+      };
+      
+      // Create the line item
+      const lineItem: LineItem = {
+        id: String(row[lineItemIdKey]),
+        orderId: getCell("Order ID") !== undefined ? String(getCell("Order ID")) : "",
+        orderName: getCell("Order Name") || `Order ${getCell("Order ID") || i}`,
+        client: getCell("Primary Advertiser") || getCell("Billing Account Name") || "Unknown Client",
+        startDate: formatDate(getCell("Line Item Start Date")),
+        endDate: formatDate(getCell("Line Item End Date")),
+        costMethod: getCell("Line Item Cost Method") || "Unknown",
+        quantity: getCell("Line Item Quantity") !== undefined ? String(getCell("Line Item Quantity")) : "",
+        netCost: getCell("Net Line Item Cost") !== undefined ? `$${getCell("Net Line Item Cost")}` : "$0.00",
+        deliveryPercent: "0%",
+        approvalStatus: getCell("Invoice Review Status") || "Pending",
+        orderOwner: getCell("Order Owner") || "Unknown",
+        hasFlag: false,
+        alertedTo: "",
+        cpm: getCell("Net Line Item Unit Cost") !== undefined ? `$${getCell("Net Line Item Unit Cost")}` : "",
+        months: ""
+      };
+      
+      lineItems.push(lineItem);
+    }
     
     if (errors.length > 0) {
       console.warn("Parse warnings:", errors);
@@ -197,123 +302,6 @@ const RefreshData: React.FC<RefreshDataProps> = ({
     }
     
     return lineItems;
-  };
-
-  // Process the file based on its type
-  const processFile = async () => {
-    if (!file) return;
-    
-    setIsProcessing(true);
-    setParseErrors([]);
-    
-    try {
-      let lineItems: LineItem[] = [];
-      
-      // Determine file type and parse accordingly
-      const fileType = file.name.split('.').pop()?.toLowerCase();
-      
-      if (fileType === 'csv') {
-        lineItems = await parseCSV(file);
-      } else if (fileType === 'xlsx' || fileType === 'xls') {
-        lineItems = await parseExcel(file);
-      } else {
-        throw new Error("Unsupported file type. Please upload a CSV or Excel file.");
-      }
-      
-      console.log(`Successfully parsed ${lineItems.length} line items`);
-      
-      // Log some sample data
-      if (lineItems.length > 0) {
-        console.log("Sample item:", lineItems[0]);
-      }
-      
-      // Apply flagging logic
-      const processedData = lineItems.map(item => {
-        const monthsSpanned = calculateMonthsSpanned(item);
-        
-        // Set months field for display purposes
-        if (!item.months && monthsSpanned > 0) {
-          // Generate month names based on start date
-          const months = [];
-          if (item.startDate) {
-            const start = new Date(item.startDate);
-            if (!isNaN(start.getTime())) {
-              for (let i = 0; i < monthsSpanned; i++) {
-                const month = new Date(start);
-                month.setMonth(start.getMonth() + i);
-                months.push(month.toLocaleString('default', { month: 'short' }));
-              }
-              item.months = months.join(',');
-            }
-          }
-        }
-        
-        // Check if this is a CPU multi-month item
-        const isCPUMultiMonth = (
-          item.costMethod === "CPU" || 
-          item.costMethod === "cpu" || 
-          item.costMethod === "Cost Per Unit"
-        ) && monthsSpanned > 1;
-        
-        console.log(`Item ${item.id} - Cost Method: ${item.costMethod}, Months: ${monthsSpanned}, Flag: ${isCPUMultiMonth}`);
-        
-        // Set the flag based on our condition
-        return {
-          ...item,
-          hasFlag: isCPUMultiMonth
-        };
-      });
-      
-      // Identify all flagged items
-      const flaggedItemIds = processedData
-        .filter(item => item.hasFlag)
-        .map(item => item.id);
-      
-      // Identify specifically CPU multi-month items
-      const cpuMultiMonthItems = processedData.filter(item => item.hasFlag);
-      
-      console.log("Total items:", processedData.length);
-      console.log("Flagged items:", flaggedItemIds.length);
-      console.log("CPU multi-month items:", cpuMultiMonthItems.length);
-      
-      if (flaggedItemIds.length === 0) {
-        console.warn("No CPU multi-month items found. Check data format and cost method values.");
-        setParseErrors(prev => [...prev, "No CPU multi-month items found. Make sure your file has Line Item Cost Method = 'CPU' and date spans > 1 month."]);
-      }
-      
-      // Create a new history entry
-      const newEntry: UploadHistoryEntry = {
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        fileName: file.name,
-        itemCount: processedData.length,
-        flaggedItems: flaggedItemIds.length,
-        flaggedCPUMultiMonthItems: cpuMultiMonthItems.length
-      };
-      
-      // Update history
-      setUploadHistory(prev => [newEntry, ...prev]);
-      
-      // Update both the main data and CPU multi-month specific data
-      onDataRefreshed(processedData, flaggedItemIds);
-      onCPUMultiMonthDataUpdated(cpuMultiMonthItems);
-      
-      toast({
-        title: "Data refreshed successfully",
-        description: `Processed ${processedData.length} line items, found ${flaggedItemIds.length} flagged items including ${cpuMultiMonthItems.length} CPU multi-month items.`,
-      });
-      
-      setFile(null);
-    } catch (error) {
-      console.error("Error processing file:", error);
-      toast({
-        title: "Error refreshing data",
-        description: error instanceof Error ? error.message : "An error occurred while processing the file.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   // Calculate how many months an item spans
@@ -363,6 +351,141 @@ const RefreshData: React.FC<RefreshDataProps> = ({
     }
   };
 
+  // Process the file based on its type
+  const processFile = async () => {
+    if (!file) {
+      toast({
+        title: "No file selected",
+        description: "Please select a file to upload.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsProcessing(true);
+    setParseErrors([]);
+    
+    try {
+      let lineItems: LineItem[] = [];
+      
+      // Determine file type and parse accordingly
+      const fileType = file.name.split('.').pop()?.toLowerCase();
+      
+      if (fileType === 'csv') {
+        lineItems = await parseCSV(file);
+      } else if (fileType === 'xlsx' || fileType === 'xls') {
+        lineItems = await parseExcel(file);
+      } else {
+        throw new Error("Unsupported file type. Please upload a CSV or Excel file.");
+      }
+      
+      console.log(`Successfully parsed ${lineItems.length} line items`);
+      
+      // Log some sample data
+      if (lineItems.length > 0) {
+        console.log("Sample item:", lineItems[0]);
+      }
+      
+      // Apply flagging logic
+      const processedData = lineItems.map(item => {
+        const monthsSpanned = calculateMonthsSpanned(item);
+        
+        // Set months field for display purposes
+        if (!item.months && monthsSpanned > 0) {
+          // Generate month names based on start date
+          const months = [];
+          if (item.startDate) {
+            const start = new Date(item.startDate);
+            if (!isNaN(start.getTime())) {
+              for (let i = 0; i < monthsSpanned; i++) {
+                const month = new Date(start);
+                month.setMonth(start.getMonth() + i);
+                months.push(month.toLocaleString('default', { month: 'short' }));
+              }
+              item.months = months.join(',');
+            }
+          }
+        }
+        
+        // Check if this is a CPU multi-month item
+        const costMethodLower = item.costMethod.toLowerCase();
+        const isCPUMultiMonth = (
+          costMethodLower === "cpu" || 
+          costMethodLower === "cost per unit"
+        ) && monthsSpanned > 1;
+        
+        console.log(`Item ${item.id} - Cost Method: ${item.costMethod}, Months: ${monthsSpanned}, Flag: ${isCPUMultiMonth}`);
+        
+        // Set the flag based on our condition
+        return {
+          ...item,
+          hasFlag: isCPUMultiMonth
+        };
+      });
+      
+      // Identify all flagged items
+      const flaggedItemIds = processedData
+        .filter(item => item.hasFlag)
+        .map(item => item.id);
+      
+      // Identify specifically CPU multi-month items
+      const cpuMultiMonthItems = processedData.filter(item => item.hasFlag);
+      
+      console.log("Total items:", processedData.length);
+      console.log("Flagged items:", flaggedItemIds.length);
+      console.log("CPU multi-month items:", cpuMultiMonthItems.length);
+      
+      // Create a new history entry
+      const newEntry: UploadHistoryEntry = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        fileName: file.name,
+        itemCount: processedData.length,
+        flaggedItems: flaggedItemIds.length,
+        flaggedCPUMultiMonthItems: cpuMultiMonthItems.length
+      };
+      
+      // Update history
+      setUploadHistory(prev => [newEntry, ...prev]);
+      
+      // Update both the main data and CPU multi-month specific data
+      onDataRefreshed(processedData, flaggedItemIds);
+      onCPUMultiMonthDataUpdated(cpuMultiMonthItems);
+      
+      // Show warning if no flagged items found
+      if (flaggedItemIds.length === 0) {
+        console.warn("No CPU multi-month items found. Check data format and cost method values.");
+        setParseErrors(prev => [...prev, "No CPU multi-month items found. Make sure your file has Line Item Cost Method = 'CPU' and date spans > 1 month."]);
+        
+        toast({
+          title: "Data refreshed with warning",
+          description: `Processed ${processedData.length} line items, but found no CPU multi-month items.`,
+          variant: "warning"
+        });
+      } else {
+        toast({
+          title: "Data refreshed successfully",
+          description: `Processed ${processedData.length} line items, found ${flaggedItemIds.length} flagged items including ${cpuMultiMonthItems.length} CPU multi-month items.`,
+        });
+      }
+      
+      // Clear file input after successful processing
+      setFile(null);
+      if (document.getElementById('file-input') as HTMLInputElement) {
+        (document.getElementById('file-input') as HTMLInputElement).value = '';
+      }
+    } catch (error) {
+      console.error("Error processing file:", error);
+      toast({
+        title: "Error refreshing data",
+        description: error instanceof Error ? error.message : "An error occurred while processing the file.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -372,6 +495,7 @@ const RefreshData: React.FC<RefreshDataProps> = ({
         <CardContent>
           <div className="flex items-center gap-4">
             <Input 
+              id="file-input"
               type="file" 
               accept=".csv,.xlsx,.xls" 
               onChange={handleFileChange}
