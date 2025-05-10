@@ -1,10 +1,10 @@
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { parse } from "papaparse";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, FileText, Upload } from "lucide-react";
+import { RefreshCw, FileText, Upload, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 interface CsvLineItem {
@@ -32,6 +32,14 @@ interface ProcessedLineItem {
   flagged: boolean;
 }
 
+interface UploadRecord {
+  id: string;
+  fileName: string;
+  timestamp: string;
+  itemCount: number;
+  flaggedCount: number;
+}
+
 const CsvTestingComponent: React.FC = () => {
   const [csvData, setCsvData] = useState<CsvLineItem[]>([]);
   const [processedData, setProcessedData] = useState<ProcessedLineItem[]>([]);
@@ -42,6 +50,28 @@ const CsvTestingComponent: React.FC = () => {
   const [totalCpuItems, setTotalCpuItems] = useState(0);
   const [flaggedItems, setFlaggedItems] = useState(0);
   const [totalQuantityGap, setTotalQuantityGap] = useState(0);
+  
+  // Upload history
+  const [uploadHistory, setUploadHistory] = useState<UploadRecord[]>([]);
+
+  // Load upload history from localStorage on component mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('cpuDataUploadHistory');
+    if (savedHistory) {
+      try {
+        setUploadHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Failed to parse upload history:", e);
+      }
+    }
+  }, []);
+
+  // Save upload history to localStorage whenever it changes
+  useEffect(() => {
+    if (uploadHistory.length > 0) {
+      localStorage.setItem('cpuDataUploadHistory', JSON.stringify(uploadHistory));
+    }
+  }, [uploadHistory]);
 
   const handleDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -150,7 +180,18 @@ const CsvTestingComponent: React.FC = () => {
     setTotalQuantityGap(totalGap);
     setIsProcessed(true);
     
-    toast.info("CSV data processed", {
+    // Record this upload in the history
+    const newUploadRecord: UploadRecord = {
+      id: Date.now().toString(),
+      fileName: uploadedFileName || "Data refresh",
+      timestamp: new Date().toISOString(),
+      itemCount: cpuItems.length,
+      flaggedCount
+    };
+    
+    setUploadHistory(prev => [newUploadRecord, ...prev]);
+    
+    toast.success("CPU data refreshed", {
       description: `${cpuItems.length} CPU line items found, ${flaggedCount} items flagged.`
     });
   };
@@ -158,7 +199,7 @@ const CsvTestingComponent: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Test Data</h2>
+        <h2 className="text-xl font-semibold mb-4">Refresh CPU Data</h2>
         
         {/* File Upload Area */}
         <div 
@@ -174,7 +215,7 @@ const CsvTestingComponent: React.FC = () => {
             ) : (
               <>
                 <p className="font-medium">Upload a CSV file or drag and drop</p>
-                <p className="text-sm text-gray-500">CSV files only</p>
+                <p className="text-sm text-gray-500">CSV files containing CPU cost method items</p>
               </>
             )}
           </div>
@@ -196,10 +237,48 @@ const CsvTestingComponent: React.FC = () => {
             disabled={csvData.length === 0}
             className="mt-3 sm:mt-0"
           >
-            Process Data
-            <ArrowDown className="ml-1 h-4 w-4" />
+            Refresh CPU Data
+            <RefreshCw className="ml-1 h-4 w-4" />
           </Button>
         </div>
+      </div>
+      
+      {/* Upload History */}
+      <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+        <h2 className="text-xl font-semibold mb-4">Upload History</h2>
+        {uploadHistory.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Clock className="mx-auto h-8 w-8 mb-2 opacity-40" />
+            <p>No upload history yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>File Name</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Flagged</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {uploadHistory.map(record => (
+                  <TableRow key={record.id}>
+                    <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
+                    <TableCell>{record.fileName}</TableCell>
+                    <TableCell>{record.itemCount}</TableCell>
+                    <TableCell>{
+                      record.flaggedCount > 0 ? 
+                        <span className="font-medium text-amber-600">{record.flaggedCount}</span> : 
+                        record.flaggedCount
+                    }</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
       
       {/* Results Section */}
