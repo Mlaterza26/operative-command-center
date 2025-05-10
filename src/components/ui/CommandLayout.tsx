@@ -13,7 +13,10 @@ import {
   Bell,
   Search,
   Calendar,
-  User
+  User,
+  Users,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "./button";
 import { useTheme } from "@/hooks/use-theme";
@@ -28,6 +31,7 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationCount] = useState(3);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
 
   const mainNavItems = [
     { icon: Home, label: "Dashboard", path: "/" },
@@ -36,8 +40,20 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
+  const teamNavItems = [
+    { label: "Sales", path: "/sales" },
+    { label: "Planning", path: "/planning" },
+    { label: "Client Success", path: "/client-success" },
+    { label: "Ad Ops", path: "/ad-ops" },
+    { label: "Finance", path: "/finance" },
+  ];
+
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const toggleTeamMenu = () => {
+    setTeamMenuOpen(!teamMenuOpen);
   };
 
   return (
@@ -96,6 +112,48 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
                 {sidebarOpen && <span className="ml-3">{item.label}</span>}
               </Link>
             ))}
+            
+            {/* Team dropdown section */}
+            <div className="pt-4">
+              <button
+                onClick={toggleTeamMenu}
+                className={cn(
+                  "w-full group flex items-center px-3 py-2 rounded-md text-sm transition-all duration-200",
+                  "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary",
+                  !sidebarOpen && "justify-center"
+                )}
+              >
+                <Users className="h-5 w-5" />
+                {sidebarOpen && (
+                  <>
+                    <span className="ml-3 flex-1">Team</span>
+                    {teamMenuOpen ? 
+                      <ChevronDown className="h-4 w-4" /> : 
+                      <ChevronRight className="h-4 w-4" />
+                    }
+                  </>
+                )}
+              </button>
+              
+              {teamMenuOpen && sidebarOpen && (
+                <div className="mt-1 ml-6 space-y-1">
+                  {teamNavItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={cn(
+                        "flex items-center px-3 py-1.5 rounded-md text-sm transition-all duration-200",
+                        isActive(item.path) 
+                          ? "bg-sidebar-accent text-sidebar-primary" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
+                      )}
+                    >
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
       </div>
