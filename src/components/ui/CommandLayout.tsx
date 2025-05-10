@@ -30,7 +30,7 @@ const CommandLayout: React.FC<CommandLayoutProps> = ({ children }) => {
   const [notificationCount] = useState(3);
 
   const mainNavItems = [
-    { icon: Home, label: "Dashboard", path: "/dashboard" },
+    { icon: Home, label: "Dashboard", path: "/" },
     { icon: BarChart3, label: "Finance", path: "/finance" },
     { icon: FileText, label: "Reports", path: "/reports" },
     { icon: Settings, label: "Settings", path: "/settings" },

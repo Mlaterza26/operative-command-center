@@ -24,8 +24,8 @@ export const ViewContextProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Update current view based on route
   useEffect(() => {
     const path = location.pathname;
-    if (path === "/") {
-      setCurrentView("Home");
+    if (path === "/" || path === "/dashboard") {
+      setCurrentView("Dashboard");
     } else if (path === "/finance") {
       setCurrentView("Finance Dashboard");
     } else if (path === "/settings") {
