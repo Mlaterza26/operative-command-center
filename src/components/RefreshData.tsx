@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Upload, FileText, Clock } from "lucide-react";
 import { LineItem } from "@/components/LineItemTable";
 import { useToast } from "@/components/ui/use-toast";
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface UploadHistoryEntry {
   id: string;
@@ -18,7 +20,7 @@ interface UploadHistoryEntry {
 
 interface RefreshDataProps {
   onDataRefreshed: (items: LineItem[], flaggedItemIds: string[]) => void;
-  onCPUMultiMonthDataUpdated: (items: LineItem[]) => void; // New prop for CPU multi-month data
+  onCPUMultiMonthDataUpdated: (items: LineItem[]) => void;
 }
 
 const RefreshData: React.FC<RefreshDataProps> = ({ 
@@ -28,6 +30,7 @@ const RefreshData: React.FC<RefreshDataProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryEntry[]>([]);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Load upload history from localStorage on component mount
@@ -50,26 +53,209 @@ const RefreshData: React.FC<RefreshDataProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setParseErrors([]);
     }
   };
 
+  // Read a file as text (for CSV)
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  // Read a file as array buffer (for Excel)
+  const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // Parse CSV data into LineItems
+  const parseCSV = async (file: File): Promise<LineItem[]> => {
+    const fileContent = await readFileAsText(file);
+    const errors: string[] = [];
+    
+    return new Promise((resolve, reject) => {
+      Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          try {
+            console.log("CSV Headers:", Object.keys(results.data[0] || {}));
+            
+            const lineItems: LineItem[] = results.data
+              .filter((row: any) => row["Line Item ID"] && !isNaN(Number(row["Line Item ID"])))
+              .map((row: any, index) => {
+                // Check if required fields are present
+                if (!row["Line Item ID"]) {
+                  errors.push(`Row ${index + 1}: Missing Line Item ID`);
+                }
+                
+                return {
+                  id: row["Line Item ID"]?.toString() || `LI-${Date.now()}-${index}`,
+                  orderId: row["Order ID"]?.toString() || "",
+                  orderName: row["Order Name"] || `Order ${row["Order ID"] || index}`,
+                  client: row["Primary Advertiser"] || row["Billing Account Name"] || "Unknown Client",
+                  startDate: row["Line Item Start Date"] || "",
+                  endDate: row["Line Item End Date"] || "",
+                  costMethod: row["Line Item Cost Method"] || "Unknown",
+                  quantity: row["Line Item Quantity"]?.toString() || "",
+                  netCost: row["Net Line Item Cost"] ? `$${row["Net Line Item Cost"]}` : "$0.00",
+                  deliveryPercent: "0%", // Not present in your CSV
+                  approvalStatus: row["Invoice Review Status"] || "Pending",
+                  orderOwner: row["Order Owner"] || "Unknown",
+                  hasFlag: false, // Will be set later
+                  alertedTo: "", // Not present in your CSV
+                  cpm: row["Net Line Item Unit Cost"] ? `$${row["Net Line Item Unit Cost"]}` : "",
+                  months: "" // Will calculate based on start/end dates
+                };
+              });
+            
+            if (errors.length > 0) {
+              console.warn("Parse warnings:", errors);
+              setParseErrors(errors);
+            }
+            
+            if (lineItems.length === 0) {
+              errors.push("No valid line items found in file");
+              reject(new Error("No valid line items found in file"));
+            } else {
+              resolve(lineItems);
+            }
+          } catch (error) {
+            console.error("Error processing CSV data:", error);
+            reject(error);
+          }
+        },
+        error: (error) => {
+          console.error("PapaParse error:", error);
+          reject(error);
+        }
+      });
+    });
+  };
+
+  // Parse Excel data into LineItems
+  const parseExcel = async (file: File): Promise<LineItem[]> => {
+    const buffer = await readFileAsArrayBuffer(file);
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const errors: string[] = [];
+    
+    // Get the first sheet
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    
+    // Convert to JSON
+    const data = XLSX.utils.sheet_to_json(worksheet);
+    
+    console.log("Excel Headers:", Object.keys(data[0] || {}));
+    
+    // Map to LineItems
+    const lineItems: LineItem[] = data
+      .filter((row: any) => row["Line Item ID"] && !isNaN(Number(row["Line Item ID"])))
+      .map((row: any, index) => {
+        // Check if required fields are present
+        if (!row["Line Item ID"]) {
+          errors.push(`Row ${index + 1}: Missing Line Item ID`);
+        }
+        
+        return {
+          id: row["Line Item ID"]?.toString() || `LI-${Date.now()}-${index}`,
+          orderId: row["Order ID"]?.toString() || "",
+          orderName: row["Order Name"] || `Order ${row["Order ID"] || index}`,
+          client: row["Primary Advertiser"] || row["Billing Account Name"] || "Unknown Client",
+          startDate: row["Line Item Start Date"] || "",
+          endDate: row["Line Item End Date"] || "",
+          costMethod: row["Line Item Cost Method"] || "Unknown",
+          quantity: row["Line Item Quantity"]?.toString() || "",
+          netCost: row["Net Line Item Cost"] ? `$${row["Net Line Item Cost"]}` : "$0.00",
+          deliveryPercent: "0%", // Not present in your Excel
+          approvalStatus: row["Invoice Review Status"] || "Pending",
+          orderOwner: row["Order Owner"] || "Unknown",
+          hasFlag: false, // Will be set later
+          alertedTo: "", // Not present in your Excel
+          cpm: row["Net Line Item Unit Cost"] ? `$${row["Net Line Item Unit Cost"]}` : "",
+          months: "" // Will calculate based on start/end dates
+        };
+      });
+    
+    if (errors.length > 0) {
+      console.warn("Parse warnings:", errors);
+      setParseErrors(errors);
+    }
+    
+    if (lineItems.length === 0) {
+      errors.push("No valid line items found in file");
+      throw new Error("No valid line items found in file");
+    }
+    
+    return lineItems;
+  };
+
+  // Process the file based on its type
   const processFile = async () => {
     if (!file) return;
     
     setIsProcessing(true);
+    setParseErrors([]);
     
     try {
-      // Simulate reading and processing the file
-      // In a real implementation, you would parse the CSV/Excel file here
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
+      let lineItems: LineItem[] = [];
       
-      // Simulate data from the file
-      const sampleData: LineItem[] = generateSampleData(25);
+      // Determine file type and parse accordingly
+      const fileType = file.name.split('.').pop()?.toLowerCase();
       
-      // Explicitly calculate months spanned for each item
-      const processedData = sampleData.map(item => {
+      if (fileType === 'csv') {
+        lineItems = await parseCSV(file);
+      } else if (fileType === 'xlsx' || fileType === 'xls') {
+        lineItems = await parseExcel(file);
+      } else {
+        throw new Error("Unsupported file type. Please upload a CSV or Excel file.");
+      }
+      
+      console.log(`Successfully parsed ${lineItems.length} line items`);
+      
+      // Log some sample data
+      if (lineItems.length > 0) {
+        console.log("Sample item:", lineItems[0]);
+      }
+      
+      // Apply flagging logic
+      const processedData = lineItems.map(item => {
         const monthsSpanned = calculateMonthsSpanned(item);
-        const isCPUMultiMonth = item.costMethod === "CPU" && monthsSpanned > 1;
+        
+        // Set months field for display purposes
+        if (!item.months && monthsSpanned > 0) {
+          // Generate month names based on start date
+          const months = [];
+          if (item.startDate) {
+            const start = new Date(item.startDate);
+            if (!isNaN(start.getTime())) {
+              for (let i = 0; i < monthsSpanned; i++) {
+                const month = new Date(start);
+                month.setMonth(start.getMonth() + i);
+                months.push(month.toLocaleString('default', { month: 'short' }));
+              }
+              item.months = months.join(',');
+            }
+          }
+        }
+        
+        // Check if this is a CPU multi-month item
+        const isCPUMultiMonth = (
+          item.costMethod === "CPU" || 
+          item.costMethod === "cpu" || 
+          item.costMethod === "Cost Per Unit"
+        ) && monthsSpanned > 1;
+        
+        console.log(`Item ${item.id} - Cost Method: ${item.costMethod}, Months: ${monthsSpanned}, Flag: ${isCPUMultiMonth}`);
         
         // Set the flag based on our condition
         return {
@@ -84,13 +270,16 @@ const RefreshData: React.FC<RefreshDataProps> = ({
         .map(item => item.id);
       
       // Identify specifically CPU multi-month items
-      const cpuMultiMonthItems = processedData.filter(item => 
-        item.costMethod === "CPU" && calculateMonthsSpanned(item) > 1
-      );
+      const cpuMultiMonthItems = processedData.filter(item => item.hasFlag);
       
       console.log("Total items:", processedData.length);
       console.log("Flagged items:", flaggedItemIds.length);
       console.log("CPU multi-month items:", cpuMultiMonthItems.length);
+      
+      if (flaggedItemIds.length === 0) {
+        console.warn("No CPU multi-month items found. Check data format and cost method values.");
+        setParseErrors(prev => [...prev, "No CPU multi-month items found. Make sure your file has Line Item Cost Method = 'CPU' and date spans > 1 month."]);
+      }
       
       // Create a new history entry
       const newEntry: UploadHistoryEntry = {
@@ -116,10 +305,10 @@ const RefreshData: React.FC<RefreshDataProps> = ({
       
       setFile(null);
     } catch (error) {
-      console.error("Error processing file", error);
+      console.error("Error processing file:", error);
       toast({
         title: "Error refreshing data",
-        description: "An error occurred while processing the file.",
+        description: error instanceof Error ? error.message : "An error occurred while processing the file.",
         variant: "destructive"
       });
     } finally {
@@ -133,82 +322,45 @@ const RefreshData: React.FC<RefreshDataProps> = ({
       return item.months ? item.months.split(',').length : 0;
     }
     
-    const start = new Date(item.startDate);
-    const end = new Date(item.endDate);
-    
-    return (end.getFullYear() - start.getFullYear()) * 12 + 
-      (end.getMonth() - start.getMonth()) + 1;
-  };
-
-  // Generate sample data
-  const generateSampleData = (count: number): LineItem[] => {
-    const items: LineItem[] = [];
-    const costMethods = ["CPU", "CPM", "CPC", "Flat"];
-    const statuses = ["Approved", "Pending", "Rejected"];
-    const clients = ["Nike", "Adidas", "Puma", "Reebok", "Under Armour"];
-    const owners = ["John Smith", "Jane Doe", "Bob Johnson", "Alice Williams"];
-    
-    // Ensure we have at least some CPU multi-month items
-    const guaranteedCPUMultiMonthCount = Math.floor(count * 0.3); // 30% of items
-    
-    // Create guaranteed CPU multi-month items
-    for (let i = 0; i < guaranteedCPUMultiMonthCount; i++) {
-      const id = `LI-${Date.now()}-${i}`;
-      const orderId = `ORD-${Math.floor(Math.random() * 10000)}`;
+    try {
+      // Try parsing dates in various formats
+      let start: Date | null = null;
+      let end: Date | null = null;
       
-      // Force this to be CPU and multi-month
-      items.push({
-        id,
-        orderId,
-        orderName: `Order ${orderId}`,
-        client: clients[Math.floor(Math.random() * clients.length)],
-        startDate: "2023-01-01",
-        endDate: "2023-03-31", // 3 months
-        costMethod: "CPU", // Force CPU
-        quantity: `${Math.floor(Math.random() * 1000000)}`,
-        netCost: `$${(Math.random() * 10000).toFixed(2)}`,
-        deliveryPercent: `${(Math.random() * 100).toFixed(2)}%`,
-        approvalStatus: statuses[Math.floor(Math.random() * statuses.length)],
-        orderOwner: owners[Math.floor(Math.random() * owners.length)],
-        hasFlag: true, // Pre-flagged
-        alertedTo: "",
-        months: "Jan,Feb,Mar" // 3 months
-      });
+      // Try to parse as ISO format (YYYY-MM-DD)
+      if (item.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        start = new Date(item.startDate);
+      }
+      // Try to parse as MM/DD/YYYY
+      else if (item.startDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+        const [month, day, year] = item.startDate.split('/').map(Number);
+        start = new Date(year, month - 1, day);
+      }
+      
+      // Try to parse end date as ISO format
+      if (item.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        end = new Date(item.endDate);
+      }
+      // Try to parse end date as MM/DD/YYYY
+      else if (item.endDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+        const [month, day, year] = item.endDate.split('/').map(Number);
+        end = new Date(year, month - 1, day);
+      }
+      
+      // If we couldn't parse the dates, return 0 or count from months field
+      if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return item.months ? item.months.split(',').length : 0;
+      }
+      
+      // Calculate months difference
+      const months = (end.getFullYear() - start.getFullYear()) * 12 + 
+        (end.getMonth() - start.getMonth()) + 1;
+      
+      return Math.max(months, 1); // Ensure at least 1 month
+    } catch (error) {
+      console.error("Error calculating months spanned:", error, item);
+      return item.months ? item.months.split(',').length : 0;
     }
-    
-    // Create remaining random items
-    for (let i = guaranteedCPUMultiMonthCount; i < count; i++) {
-      const id = `LI-${Date.now()}-${i}`;
-      const orderId = `ORD-${Math.floor(Math.random() * 10000)}`;
-      const costMethod = costMethods[Math.floor(Math.random() * costMethods.length)];
-      
-      // For some items, create multi-month spans
-      const isMultiMonth = Math.random() > 0.7;
-      const startDate = "2023-01-01";
-      const endDate = isMultiMonth ? "2023-03-31" : "2023-01-31";
-      const monthsArray = isMultiMonth ? ["Jan", "Feb", "Mar"] : ["Jan"];
-      
-      items.push({
-        id,
-        orderId,
-        orderName: `Order ${orderId}`,
-        client: clients[Math.floor(Math.random() * clients.length)],
-        startDate,
-        endDate,
-        costMethod,
-        quantity: `${Math.floor(Math.random() * 1000000)}`,
-        netCost: `$${(Math.random() * 10000).toFixed(2)}`,
-        deliveryPercent: `${(Math.random() * 100).toFixed(2)}%`,
-        approvalStatus: statuses[Math.floor(Math.random() * statuses.length)],
-        orderOwner: owners[Math.floor(Math.random() * owners.length)],
-        hasFlag: costMethod === "CPU" && isMultiMonth, // Flag only CPU multi-month
-        alertedTo: "",
-        cpm: costMethod === "CPM" ? `$${(Math.random() * 10).toFixed(2)}` : undefined,
-        months: monthsArray.join(",")
-      });
-    }
-    
-    return items;
   };
 
   return (
@@ -233,20 +385,19 @@ const RefreshData: React.FC<RefreshDataProps> = ({
               <Upload className="h-4 w-4" />
               {isProcessing ? "Processing..." : "Refresh Data"}
             </Button>
-            
-            {/* Test Data Button */}
-            <Button 
-              onClick={() => {
-                // Create a mock file
-                const mockFile = new File([""], "test-data.csv", { type: "text/csv" });
-                setFile(mockFile);
-                setTimeout(() => processFile(), 100);
-              }}
-              className="ml-2 bg-gray-200 text-gray-800 hover:bg-gray-300"
-            >
-              Generate Test Data
-            </Button>
           </div>
+          
+          {parseErrors.length > 0 && (
+            <div className="mt-4 p-4 border border-red-200 rounded bg-red-50">
+              <h4 className="text-red-800 font-medium mb-2">Warning:</h4>
+              <ul className="text-sm text-red-700 list-disc pl-5">
+                {parseErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
           <p className="mt-2 text-sm text-gray-500">
             Upload a CSV or Excel file to refresh line item data. This will identify CPU cost method orders spanning multiple months.
           </p>
