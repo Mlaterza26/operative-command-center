@@ -6,6 +6,7 @@ import App from './App';
 import NotFound from '@/pages/NotFound';
 import PlaceholderPage from '@/pages/PlaceholderPage';
 import Finance from '@/pages/Finance';
+import Settings from '@/pages/Settings';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -17,6 +18,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/client-success" element={<PlaceholderPage />} />
       <Route path="/ad-ops" element={<PlaceholderPage />} />
       <Route path="/finance" element={<Finance />} />
+      <Route path="/settings" element={<Settings />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
