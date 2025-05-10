@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import * as reviewStorage from "@/utils/reviewStorage";
+import { reviewStorage } from "@/utils/reviewStorage";
 import { toast } from "sonner";
 
 interface UseReviewOptions {
@@ -91,6 +92,6 @@ export function useReview<T extends { id: string }>(
     openReviewDialog,
     handleSubmitReview,
     handleRemoveReview,
-    isReviewed: reviewStorage.isReviewed
+    isReviewed: reviewStorage.isReviewed.bind(reviewStorage)
   };
 }
