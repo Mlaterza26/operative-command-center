@@ -1,3 +1,4 @@
+
 export interface ReviewRecord {
   lineItemId: string;
   reviewer: string;
@@ -46,6 +47,10 @@ class ReviewStorageService {
    * @returns An object containing all reviewed items, keyed by line item ID
    */
   public getReviewedItems(): Record<string, ReviewRecord> {
+    if (typeof localStorage === 'undefined') {
+      return {};
+    }
+    
     const storedItems = localStorage.getItem(STORAGE_KEY);
     if (!storedItems) {
       return {};
@@ -103,7 +108,9 @@ class ReviewStorageService {
    * Clears all review data
    */
   public clearAllReviews(): void {
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }
 
   /**
@@ -111,21 +118,24 @@ class ReviewStorageService {
    * @param items The items to save
    */
   private saveToLocalStorage(items: Record<string, ReviewRecord>): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
   }
 }
 
-// Export a singleton instance
-export const reviewStorage = new ReviewStorageService();
+// Create a singleton instance
+const reviewStorageInstance = new ReviewStorageService();
+
+// Export the singleton instance
+export const reviewStorage = reviewStorageInstance;
 
 // Also export individual functions for backward compatibility
-export const {
-  markAsReviewed,
-  isReviewed,
-  getReviewedItems,
-  removeReview,
-  getReviewNotes,
-  getReviewInfo,
-  getReviewedItemIds,
-  clearAllReviews
-} = reviewStorage;
+export const markAsReviewed = reviewStorageInstance.markAsReviewed.bind(reviewStorageInstance);
+export const isReviewed = reviewStorageInstance.isReviewed.bind(reviewStorageInstance);
+export const getReviewedItems = reviewStorageInstance.getReviewedItems.bind(reviewStorageInstance);
+export const removeReview = reviewStorageInstance.removeReview.bind(reviewStorageInstance);
+export const getReviewNotes = reviewStorageInstance.getReviewNotes.bind(reviewStorageInstance);
+export const getReviewInfo = reviewStorageInstance.getReviewInfo.bind(reviewStorageInstance);
+export const getReviewedItemIds = reviewStorageInstance.getReviewedItemIds.bind(reviewStorageInstance);
+export const clearAllReviews = reviewStorageInstance.clearAllReviews.bind(reviewStorageInstance);
