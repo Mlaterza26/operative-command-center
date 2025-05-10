@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,35 +8,188 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CustomView } from "@/pages/Finance";
 import { toast } from "sonner";
 
+// Submission method type
+type SubmissionMethod = "asana" | "zapier" | "email" | "none";
+
+// Form data interface
+interface ViewRequestForm {
+  requestName: string;
+  description: string;
+  functionality: string;
+  sourceData: string;
+  additionalNotes: string;
+  submissionMethod: SubmissionMethod;
+  asanaWebhook: string;
+  zapierWebhook: string;
+  emailAddress: string;
+}
+
+// Props for the submission method section
+interface SubmissionSectionProps {
+  submissionMethod: SubmissionMethod;
+  setSubmissionMethod: (method: SubmissionMethod) => void;
+  asanaWebhook: string;
+  setAsanaWebhook: (url: string) => void;
+  zapierWebhook: string;
+  setZapierWebhook: (url: string) => void;
+  emailAddress: string;
+  setEmailAddress: (email: string) => void;
+}
+
+// Main component props
 interface AddViewRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddView: (view: CustomView) => void;
 }
 
+// Submission method selection and options component
+const SubmissionMethodSection: React.FC<SubmissionSectionProps> = ({
+  submissionMethod,
+  setSubmissionMethod,
+  asanaWebhook,
+  setAsanaWebhook,
+  zapierWebhook,
+  setZapierWebhook,
+  emailAddress,
+  setEmailAddress
+}) => {
+  return (
+    <>
+      <div className="border-t pt-4 mt-2">
+        <Label className="mb-2 block">Send request to:</Label>
+        <RadioGroup 
+          value={submissionMethod} 
+          onValueChange={(value) => setSubmissionMethod(value as SubmissionMethod)}
+          className="flex flex-col space-y-2"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="none" id="none" />
+            <Label htmlFor="none" className="cursor-pointer">Just save locally</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="asana" id="asana" />
+            <Label htmlFor="asana" className="cursor-pointer">Create task in Asana directly</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="zapier" id="zapier" />
+            <Label htmlFor="zapier" className="cursor-pointer">Use Zapier to create Asana task</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="email" id="email" />
+            <Label htmlFor="email" className="cursor-pointer">Send email notification</Label>
+          </div>
+        </RadioGroup>
+      </div>
+      
+      {submissionMethod === "asana" && (
+        <div className="grid gap-2">
+          <Label htmlFor="asanaWebhook">Asana Webhook URL</Label>
+          <Input
+            id="asanaWebhook"
+            placeholder="Enter your Asana webhook URL"
+            value={asanaWebhook}
+            onChange={(e) => setAsanaWebhook(e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            Paste your Asana webhook URL to create tasks automatically
+          </p>
+        </div>
+      )}
+      
+      {submissionMethod === "zapier" && (
+        <div className="grid gap-2">
+          <Label htmlFor="zapierWebhook">Zapier Webhook URL</Label>
+          <Input
+            id="zapierWebhook"
+            placeholder="Enter your Zapier webhook URL"
+            value={zapierWebhook}
+            onChange={(e) => setZapierWebhook(e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            Paste your Zapier webhook URL that creates Asana tasks
+          </p>
+        </div>
+      )}
+      
+      {submissionMethod === "email" && (
+        <div className="grid gap-2">
+          <Label htmlFor="emailAddress">Email Address</Label>
+          <Input
+            id="emailAddress"
+            type="email"
+            placeholder="Enter email address"
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            The request details will be sent to this email address
+          </p>
+        </div>
+      )}
+    </>
+  );
+};
+
+// Text input field with label
+const TextInputField: React.FC<{
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+}> = ({ id, label, placeholder, value, onChange, rows }) => {
+  const InputComponent = rows ? Textarea : Input;
+  
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <InputComponent
+        id={id}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+      />
+    </div>
+  );
+};
+
+// Main component
 const AddViewRequestModal: React.FC<AddViewRequestModalProps> = ({
   isOpen,
   onClose,
   onAddView,
 }) => {
-  const [requestName, setRequestName] = useState("");
-  const [description, setDescription] = useState("");
-  const [functionality, setFunctionality] = useState("");
-  const [sourceData, setSourceData] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
-  const [submissionMethod, setSubmissionMethod] = useState<"asana" | "zapier" | "email" | "none">("none");
-  const [asanaWebhook, setAsanaWebhook] = useState("");
-  const [zapierWebhook, setZapierWebhook] = useState("");
-  const [emailAddress, setEmailAddress] = useState("");
+  // Use a single form state object instead of individual states
+  const [form, setForm] = useState<ViewRequestForm>({
+    requestName: "",
+    description: "",
+    functionality: "",
+    sourceData: "",
+    additionalNotes: "",
+    submissionMethod: "none",
+    asanaWebhook: "",
+    zapierWebhook: "",
+    emailAddress: ""
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Generic form field update handler
+  const updateForm = (field: keyof ViewRequestForm, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Submit handler
   const handleSubmit = async () => {
-    if (!requestName.trim()) {
+    // Validation
+    if (!form.requestName.trim()) {
       toast.error("Request name is required");
       return;
     }
 
-    if (!description.trim()) {
+    if (!form.description.trim()) {
       toast.error("Description is required");
       return;
     }
@@ -45,74 +197,21 @@ const AddViewRequestModal: React.FC<AddViewRequestModalProps> = ({
     // Create a new view request object
     const newView: CustomView = {
       id: `view-${Date.now()}`,
-      name: requestName,
-      description: description,
+      name: form.requestName,
+      description: form.description,
       lastUpdated: new Date().toISOString().split("T")[0],
       flaggedItems: 0,
       filters: {},
-      sourceData: sourceData,
-      functionality: functionality,
-      additionalNotes: additionalNotes
+      sourceData: form.sourceData,
+      functionality: form.functionality,
+      additionalNotes: form.additionalNotes
     };
 
     // Handle external submissions
-    if (submissionMethod !== "none") {
+    if (form.submissionMethod !== "none") {
       setIsSubmitting(true);
       try {
-        if (submissionMethod === "asana" && asanaWebhook) {
-          // Send to Asana via webhook
-          await fetch(asanaWebhook, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            mode: "no-cors", // Handle CORS issues
-            body: JSON.stringify({
-              name: requestName,
-              notes: `
-Description: ${description}
-Expected Functionality: ${functionality}
-Source Data: ${sourceData}
-Additional Notes: ${additionalNotes}
-              `,
-              resource_type: "task",
-              created_at: new Date().toISOString()
-            }),
-          });
-          toast.success("Request sent to Asana");
-        } else if (submissionMethod === "zapier" && zapierWebhook) {
-          // Send to Zapier webhook which can create an Asana task
-          await fetch(zapierWebhook, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            mode: "no-cors", // Handle CORS issues
-            body: JSON.stringify({
-              task_name: requestName,
-              description: description,
-              functionality: functionality,
-              source_data: sourceData,
-              additional_notes: additionalNotes,
-              timestamp: new Date().toISOString(),
-              triggered_from: window.location.origin
-            }),
-          });
-          toast.success("Request sent to Zapier");
-        } else if (submissionMethod === "email" && emailAddress) {
-          // Create mailto link to send email
-          const subject = encodeURIComponent(`New Finance View Request: ${requestName}`);
-          const body = encodeURIComponent(`
-Request Name: ${requestName}
-Description: ${description}
-Expected Functionality: ${functionality}
-Source Data: ${sourceData}
-Additional Notes: ${additionalNotes}
-          `);
-          
-          window.open(`mailto:${emailAddress}?subject=${subject}&body=${body}`, '_blank');
-          toast.success("Email client opened");
-        }
+        await submitToExternalService(form, newView);
       } catch (error) {
         console.error("Error sending request:", error);
         toast.error("Failed to send the request");
@@ -128,16 +227,85 @@ Additional Notes: ${additionalNotes}
     toast.success("View request submitted successfully");
   };
 
+  // External submission handler
+  const submitToExternalService = async (formData: ViewRequestForm, viewData: CustomView) => {
+    if (formData.submissionMethod === "asana" && formData.asanaWebhook) {
+      // Send to Asana via webhook
+      await fetch(formData.asanaWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        body: JSON.stringify({
+          name: formData.requestName,
+          notes: formatRequestForAsana(formData),
+          resource_type: "task",
+          created_at: new Date().toISOString()
+        }),
+      });
+      toast.success("Request sent to Asana");
+    } 
+    else if (formData.submissionMethod === "zapier" && formData.zapierWebhook) {
+      // Send to Zapier webhook
+      await fetch(formData.zapierWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        body: JSON.stringify({
+          task_name: formData.requestName,
+          description: formData.description,
+          functionality: formData.functionality,
+          source_data: formData.sourceData,
+          additional_notes: formData.additionalNotes,
+          timestamp: new Date().toISOString(),
+          triggered_from: window.location.origin
+        }),
+      });
+      toast.success("Request sent to Zapier");
+    } 
+    else if (formData.submissionMethod === "email" && formData.emailAddress) {
+      // Create mailto link
+      const subject = encodeURIComponent(`New Finance View Request: ${formData.requestName}`);
+      const body = encodeURIComponent(formatRequestForEmail(formData));
+      
+      window.open(`mailto:${formData.emailAddress}?subject=${subject}&body=${body}`, '_blank');
+      toast.success("Email client opened");
+    }
+  };
+
+  // Helper function to format request for Asana
+  const formatRequestForAsana = (formData: ViewRequestForm): string => {
+    return `
+Description: ${formData.description}
+Expected Functionality: ${formData.functionality}
+Source Data: ${formData.sourceData}
+Additional Notes: ${formData.additionalNotes}
+    `;
+  };
+
+  // Helper function to format request for Email
+  const formatRequestForEmail = (formData: ViewRequestForm): string => {
+    return `
+Request Name: ${formData.requestName}
+Description: ${formData.description}
+Expected Functionality: ${formData.functionality}
+Source Data: ${formData.sourceData}
+Additional Notes: ${formData.additionalNotes}
+    `;
+  };
+
+  // Reset form to initial state
   const resetForm = () => {
-    setRequestName("");
-    setDescription("");
-    setFunctionality("");
-    setSourceData("");
-    setAdditionalNotes("");
-    setSubmissionMethod("none");
-    setAsanaWebhook("");
-    setZapierWebhook("");
-    setEmailAddress("");
+    setForm({
+      requestName: "",
+      description: "",
+      functionality: "",
+      sourceData: "",
+      additionalNotes: "",
+      submissionMethod: "none",
+      asanaWebhook: "",
+      zapierWebhook: "",
+      emailAddress: ""
+    });
   };
 
   return (
@@ -150,131 +318,62 @@ Additional Notes: ${additionalNotes}
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="requestName">Request Name</Label>
-            <Input
-              id="requestName"
-              placeholder="Enter a name for this view request"
-              value={requestName}
-              onChange={(e) => setRequestName(e.target.value)}
-            />
-          </div>
+          {/* Basic Info Fields */}
+          <TextInputField
+            id="requestName"
+            label="Request Name"
+            placeholder="Enter a name for this view request"
+            value={form.requestName}
+            onChange={(value) => updateForm("requestName", value)}
+          />
 
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Describe what this view should show"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <TextInputField
+            id="description"
+            label="Description"
+            placeholder="Describe what this view should show"
+            value={form.description}
+            onChange={(value) => updateForm("description", value)}
+            rows={3}
+          />
 
-          <div className="grid gap-2">
-            <Label htmlFor="functionality">Expected Functionality</Label>
-            <Textarea
-              id="functionality"
-              placeholder="What should this view do? What interactions are needed?"
-              value={functionality}
-              onChange={(e) => setFunctionality(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <TextInputField
+            id="functionality"
+            label="Expected Functionality"
+            placeholder="What should this view do? What interactions are needed?"
+            value={form.functionality}
+            onChange={(value) => updateForm("functionality", value)}
+            rows={3}
+          />
 
-          <div className="grid gap-2">
-            <Label htmlFor="sourceData">Source Data</Label>
-            <Textarea
-              id="sourceData"
-              placeholder="What data sources should this view use?"
-              value={sourceData}
-              onChange={(e) => setSourceData(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <TextInputField
+            id="sourceData"
+            label="Source Data"
+            placeholder="What data sources should this view use?"
+            value={form.sourceData}
+            onChange={(value) => updateForm("sourceData", value)}
+            rows={3}
+          />
 
-          <div className="grid gap-2">
-            <Label htmlFor="additionalNotes">Additional Notes</Label>
-            <Textarea
-              id="additionalNotes"
-              placeholder="Any additional information that might be helpful"
-              value={additionalNotes}
-              onChange={(e) => setAdditionalNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <TextInputField
+            id="additionalNotes"
+            label="Additional Notes"
+            placeholder="Any additional information that might be helpful"
+            value={form.additionalNotes}
+            onChange={(value) => updateForm("additionalNotes", value)}
+            rows={3}
+          />
           
-          <div className="border-t pt-4 mt-2">
-            <Label className="mb-2 block">Send request to:</Label>
-            <RadioGroup 
-              value={submissionMethod} 
-              onValueChange={(value) => setSubmissionMethod(value as "asana" | "zapier" | "email" | "none")}
-              className="flex flex-col space-y-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="none" id="none" />
-                <Label htmlFor="none" className="cursor-pointer">Just save locally</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="asana" id="asana" />
-                <Label htmlFor="asana" className="cursor-pointer">Create task in Asana directly</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="zapier" id="zapier" />
-                <Label htmlFor="zapier" className="cursor-pointer">Use Zapier to create Asana task</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="email" id="email" />
-                <Label htmlFor="email" className="cursor-pointer">Send email notification</Label>
-              </div>
-            </RadioGroup>
-          </div>
-          
-          {submissionMethod === "asana" && (
-            <div className="grid gap-2">
-              <Label htmlFor="asanaWebhook">Asana Webhook URL</Label>
-              <Input
-                id="asanaWebhook"
-                placeholder="Enter your Asana webhook URL"
-                value={asanaWebhook}
-                onChange={(e) => setAsanaWebhook(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                Paste your Asana webhook URL to create tasks automatically
-              </p>
-            </div>
-          )}
-          
-          {submissionMethod === "zapier" && (
-            <div className="grid gap-2">
-              <Label htmlFor="zapierWebhook">Zapier Webhook URL</Label>
-              <Input
-                id="zapierWebhook"
-                placeholder="Enter your Zapier webhook URL"
-                value={zapierWebhook}
-                onChange={(e) => setZapierWebhook(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                Paste your Zapier webhook URL that creates Asana tasks
-              </p>
-            </div>
-          )}
-          
-          {submissionMethod === "email" && (
-            <div className="grid gap-2">
-              <Label htmlFor="emailAddress">Email Address</Label>
-              <Input
-                id="emailAddress"
-                type="email"
-                placeholder="Enter email address"
-                value={emailAddress}
-                onChange={(e) => setEmailAddress(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                The request details will be sent to this email address
-              </p>
-            </div>
-          )}
+          {/* Submission Method Section */}
+          <SubmissionMethodSection
+            submissionMethod={form.submissionMethod}
+            setSubmissionMethod={(method) => updateForm("submissionMethod", method)}
+            asanaWebhook={form.asanaWebhook}
+            setAsanaWebhook={(value) => updateForm("asanaWebhook", value)}
+            zapierWebhook={form.zapierWebhook}
+            setZapierWebhook={(value) => updateForm("zapierWebhook", value)}
+            emailAddress={form.emailAddress}
+            setEmailAddress={(value) => updateForm("emailAddress", value)}
+          />
         </div>
 
         <DialogFooter>
