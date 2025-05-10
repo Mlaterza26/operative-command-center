@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, Users, Webhook, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserManagement from "@/components/UserManagement";
 import WebhookConfigurations from "@/components/WebhookConfigurations";
@@ -19,34 +19,62 @@ const Settings: React.FC = () => {
   };
   
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <Button onClick={() => setIsAddingView(true)}>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
+          <p className="text-sm text-operative-text-body mt-1">Configure system preferences and integrations</p>
+        </div>
+        <Button 
+          onClick={() => setIsAddingView(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 glow-border"
+        >
           <Plus className="mr-2 h-4 w-4" />
           New View Request
         </Button>
       </div>
       
-      <Tabs defaultValue="users" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="datasources">Data Sources</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="users">
-          <UserManagement />
-        </TabsContent>
-        
-        <TabsContent value="integrations">
-          <WebhookConfigurations />
-        </TabsContent>
-        
-        <TabsContent value="datasources">
-          <DataSourceSettings />
-        </TabsContent>
-      </Tabs>
+      <div className="card-gradient rounded-lg shadow-glow-sm animate-in">
+        <Tabs defaultValue="users" className="w-full">
+          <TabsList className="mb-6 bg-background/10 backdrop-blur-sm p-1 border-b border-operative-border/20">
+            <TabsTrigger 
+              value="users" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              User Management
+            </TabsTrigger>
+            <TabsTrigger 
+              value="integrations" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2"
+            >
+              <Webhook className="h-4 w-4" />
+              Integrations
+            </TabsTrigger>
+            <TabsTrigger 
+              value="datasources" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2"
+            >
+              <Database className="h-4 w-4" />
+              Data Sources
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="px-4 pb-4">
+            <TabsContent value="users">
+              <UserManagement />
+            </TabsContent>
+            
+            <TabsContent value="integrations">
+              <WebhookConfigurations />
+            </TabsContent>
+            
+            <TabsContent value="datasources">
+              <DataSourceSettings />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
       
       <AddViewRequestModal
         isOpen={isAddingView}
